@@ -61,7 +61,7 @@ func saveToken(file string, t *oauth2.Token) {
 
 // getTokenFromWeb uses a Google OAuth config to request an auth token.
 // It returns the retrieved Token.
-func tokenFromWeb(config *oauth2.Config) *oauth2.Token {
+func tokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 	fmt.Println("")
 	fmt.Println("====> Get ready to authenticate....")
@@ -73,15 +73,16 @@ func tokenFromWeb(config *oauth2.Config) *oauth2.Token {
 
 	var token string
 	if _, err := fmt.Scan(&token); err != nil {
-		log.Fatalf("Unable to read authorization token %v", err)
+		log.Printf("Unable to read authorization token, err: %v", err)
+		return nil, err
 	}
 
 	// Exchange converts an authorization code into a token.
-	tok, err := config.Exchange(oauth2.NoContext, token)
-	if err != nil {
-		log.Fatalf("Unable to retrieve token from web %v", err)
+	tok, err := config.Exchange(oauth2.NoContext, token); err != nil {
+		log.Printf("Unable to retrieve token from web code, err: %v", err)
+		return nil, err
 	}
-	return tok
+	return tok, err
 }
 
 
@@ -109,9 +110,10 @@ func Client(ctx context.Context) (*http.Client, error) {
 	}
 	if err != nil {
 		fmt.Printf("need to get from Web\n")
-		t := tokenFromWeb(c)
+		t, err := tokenFromWeb(c); err != nil {
+			return nil, err
+		}
 		saveToken(cacheFile, t)
-		err = nil  // TO DO: tokenFromWeb should return err
 	}
 
 	client := c.Client(ctx, &t);
