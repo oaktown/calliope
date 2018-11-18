@@ -14,6 +14,9 @@ calliope
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+# Dependencies
+vendor
+
 # ignore secrets
 client_secret.json
 .envrc
