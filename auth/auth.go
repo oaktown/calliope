@@ -73,6 +73,7 @@ func tokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
 
 	var code string
 	var tok *oauth2.Token
+	var err error
 
 	if _, err := fmt.Scan(&code); err != nil {
 		log.Printf("Unable to read authorization code, err: %v", err)
@@ -80,7 +81,7 @@ func tokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
 	}
 
 	// Exchange converts an authorization code into a token.
-	if tok, err := config.Exchange(oauth2.NoContext, code); err != nil {
+	if tok, err = config.Exchange(oauth2.NoContext, code); err != nil {
 		log.Printf("Unable to retrieve token from web code, err: %v", err)
 		return nil, err
 	}
@@ -92,9 +93,9 @@ func tokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
 // Client returns an OAuth http client
 func Client(ctx context.Context) (*http.Client, error) {
 	fmt.Printf("hello auth\n")
+
 	var err error;
-	var raw []byte;
-	var t oauth2.Token;
+	var t *oauth2.Token = nil;
 
 	c, err := oauthConfig()
 	if err != nil {
@@ -104,21 +105,20 @@ func Client(ctx context.Context) (*http.Client, error) {
 	cacheFile, err := localTokenFilename()
 	if err == nil {
 		fmt.Printf("checking local file: %s\n", cacheFile)
-		raw, err = ioutil.ReadFile(cacheFile)
-		if err == nil {
+		if raw, err := ioutil.ReadFile(cacheFile); err == nil {
 			fmt.Printf("got client from local file: %s\n", cacheFile)
-			json.Unmarshal(raw, &t)
+			json.Unmarshal(raw, t)
 		}
 	}
-	if err != nil {
+	if t == nil {
 		fmt.Printf("need to get from Web\n")
-		if t, err := tokenFromWeb(c); err != nil {
+		if t, err = tokenFromWeb(c); err != nil {
 			return nil, err
 		}
-		saveToken(cacheFile, t)
+		saveToken(cacheFile, t)		// ignore error, ok not to have local file
 	}
 
-	client := c.Client(ctx, &t);
+	client := c.Client(ctx, t);
 	fmt.Printf("got client\n")
 
 	return client, err;
