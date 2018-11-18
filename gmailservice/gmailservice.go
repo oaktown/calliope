@@ -60,17 +60,15 @@ func Download(g *GmailService) {
 
 		log.Printf("Processing %v messages...\n", len(r.Messages))
 
-		for _, m := range r.Messages[:1] {
-
+		for _, m := range r.Messages {
 			msg, err := g.svc.Users.Messages.Get("me", m.Id).Do()
 			if err != nil {
 				log.Printf("Unable to retrieve message %v: %v", m.Id, err)
 				continue
 			}
 			fmt.Printf("Message ID: %v\n", m.Id)
-			fmt.Printf("%v\n\n", msg)
 			s, _ := json.MarshalIndent(msg, "", "\t")
-			log.Printf("%s", s)
+			//log.Printf("%s", s)
 		}
 
 }

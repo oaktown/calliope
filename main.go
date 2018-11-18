@@ -25,7 +25,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not create gmailservice, %v", err)
 	} else {
-		gmailservice.Download(gsvc);
+		const BufferSize = 1000;
+		messageChannel := make(chan string, BufferSize)
+
+		gmailservice.Download(gsvc, messageChannel);
 	}
 	log.Printf("done")
 
