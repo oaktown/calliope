@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"encoding/json"
 	"net/http"
 	"google.golang.org/api/gmail/v1"
-
+	// "github.com/kr/pretty"
 )
 
 
@@ -58,7 +59,8 @@ func Download(g *GmailService) {
 		}
 
 		log.Printf("Processing %v messages...\n", len(r.Messages))
-		for _, m := range r.Messages[:2] {
+
+		for _, m := range r.Messages[:1] {
 
 			msg, err := g.svc.Users.Messages.Get("me", m.Id).Do()
 			if err != nil {
@@ -67,43 +69,15 @@ func Download(g *GmailService) {
 			}
 			fmt.Printf("Message ID: %v\n", m.Id)
 			fmt.Printf("%v\n\n", msg)
-
-			// lastMessageRetrievedDate, err := utils.MsToTime(strconv.FormatInt(msg.InternalDate, 10))
-			// if err != nil {
-			// 	log.Println("Unable to parse message date", err)
-			// }
-
-			// //message date
-			// log.Println(lastMessageRetrievedDate)
-
-			// if firstMessage {
-
-			// 	//set the last known date
-			// 	currentDate := lastMessageRetrievedDate.Format("2006/01/02")
-			// 	err = g.db.SetLastDate(currentDate)
-			// 	if err != nil {
-			// 		log.Println("Unable to save last message date:", currentDate)
-			// 	} else {
-			// 		log.Println("Saved last message date:", currentDate)
-			// 		firstMessage = false
-			// 	}
-
-			// }
-
-
-		if r.NextPageToken == "" {
-			break
+			s, _ := json.MarshalIndent(msg, "", "\t")
+			log.Printf("%s", s)
 		}
-		pageToken = r.NextPageToken
-
-		//break
-
-
-	}
-
-
 
 }
+
+
+
+
 
 
 
