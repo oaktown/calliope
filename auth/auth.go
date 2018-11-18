@@ -95,21 +95,31 @@ func Client(ctx context.Context) (*http.Client, error) {
 	fmt.Printf("hello auth\n")
 
 	var err error;
-	var t *oauth2.Token = nil;
+	var token oauth2.Token
+	var t *oauth2.Token;
 
 	c, err := oauthConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	cacheFile, err := localTokenFilename()
-	if err == nil {
-		fmt.Printf("checking local file: %s\n", cacheFile)
-		if raw, err := ioutil.ReadFile(cacheFile); err == nil {
-			fmt.Printf("got client from local file: %s\n", cacheFile)
-			json.Unmarshal(raw, t)
+	// ----------------------------
+	// code below seems to work, but doesn't actually
+	// Unable to retrieve messages:
+	// oauth2: token expired and refresh token is not set
+  // ----------------------------
+	if false {
+		cacheFile, err := localTokenFilename()
+		if err == nil {
+			fmt.Printf("checking local file: %s\n", cacheFile)
+			if raw, err := ioutil.ReadFile(cacheFile); err == nil {
+				fmt.Printf("got client from local file: %s\n", cacheFile)
+				json.Unmarshal(raw, &token)
+				t = &token;
+			}
 		}
 	}
+
 	if t == nil {
 		fmt.Printf("need to get from Web\n")
 		if t, err = tokenFromWeb(c); err != nil {

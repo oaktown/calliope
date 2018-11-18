@@ -58,14 +58,15 @@ func Download(g *GmailService) {
 		}
 
 		log.Printf("Processing %v messages...\n", len(r.Messages))
-		for _, m := range r.Messages {
+		for _, m := range r.Messages[:2] {
 
 			msg, err := g.svc.Users.Messages.Get("me", m.Id).Do()
 			if err != nil {
 				log.Printf("Unable to retrieve message %v: %v", m.Id, err)
 				continue
 			}
-			fmt.Printf("%v\n", msg)
+			fmt.Printf("Message ID: %v\n", m.Id)
+			fmt.Printf("%v\n\n", msg)
 
 			// lastMessageRetrievedDate, err := utils.MsToTime(strconv.FormatInt(msg.InternalDate, 10))
 			// if err != nil {
