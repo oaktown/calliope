@@ -22,6 +22,7 @@ git clone https://github.com/oaktown/calliope.git
 cd calliope
 echo "export GOPATH=/Users/me/go" > .envrc
 direnv allow
+dep ensure
 ```
 
 # Setup a Google Cloud project
