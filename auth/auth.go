@@ -71,18 +71,20 @@ func tokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
 	fmt.Println("")
 	fmt.Print("Paste the code here:")
 
-	var token string
-	if _, err := fmt.Scan(&token); err != nil {
-		log.Printf("Unable to read authorization token, err: %v", err)
+	var code string
+	var tok *oauth2.Token
+
+	if _, err := fmt.Scan(&code); err != nil {
+		log.Printf("Unable to read authorization code, err: %v", err)
 		return nil, err
 	}
 
 	// Exchange converts an authorization code into a token.
-	tok, err := config.Exchange(oauth2.NoContext, token); err != nil {
+	if tok, err := config.Exchange(oauth2.NoContext, code); err != nil {
 		log.Printf("Unable to retrieve token from web code, err: %v", err)
 		return nil, err
 	}
-	return tok, err
+	return tok, nil
 }
 
 
@@ -110,7 +112,7 @@ func Client(ctx context.Context) (*http.Client, error) {
 	}
 	if err != nil {
 		fmt.Printf("need to get from Web\n")
-		t, err := tokenFromWeb(c); err != nil {
+		if t, err := tokenFromWeb(c); err != nil {
 			return nil, err
 		}
 		saveToken(cacheFile, t)
