@@ -1,3 +1,6 @@
+# let's not checkin the built executable
+calliope
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
