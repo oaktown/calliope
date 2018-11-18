@@ -16,3 +16,4 @@ calliope
 
 # ignore secrets
 client_secret.json
+.envrc
