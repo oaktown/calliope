@@ -111,6 +111,7 @@ func Client(ctx context.Context) (*http.Client, error) {
 		fmt.Printf("need to get from Web\n")
 		t := tokenFromWeb(c)
 		saveToken(cacheFile, t)
+		err = nil  // TO DO: tokenFromWeb should return err
 	}
 
 	client := c.Client(ctx, &t);
