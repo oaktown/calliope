@@ -107,9 +107,9 @@ func Client(ctx context.Context) (*http.Client, error) {
 	// code below seems to work, but doesn't actually
 	// Unable to retrieve messages:
 	// oauth2: token expired and refresh token is not set
-  // ----------------------------
+	// ----------------------------
+	cacheFile, err := localTokenFilename()
 	if false {
-		cacheFile, err := localTokenFilename()
 		if err == nil {
 			fmt.Printf("checking local file: %s\n", cacheFile)
 			if raw, err := ioutil.ReadFile(cacheFile); err == nil {
