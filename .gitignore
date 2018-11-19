@@ -20,3 +20,6 @@ vendor
 # ignore secrets
 client_secret.json
 .envrc
+
+# ignore Mac files
+.DS_Store
