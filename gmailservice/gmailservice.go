@@ -31,8 +31,6 @@ func New(ctx context.Context, client *http.Client) (*GmailService, error) {
 
 // Download doesn't do anything yet
 func Download(g *GmailService, messages chan<- []byte) {
-	fmt.Printf("ready to do something!\n")
-
 	lastDate := "2018/01/01"
 	var pageToken = ""
 

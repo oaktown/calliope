@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 	"sync"
 	"golang.org/x/net/context"
-//  "github.com/olivere/elastic"
-
 )
 
 func reader(messageChannel <-chan []byte, wg *sync.WaitGroup) {
@@ -26,7 +24,6 @@ func reader(messageChannel <-chan []byte, wg *sync.WaitGroup) {
 }
 
 func main() {
-	fmt.Printf("hello, world\n")
 
 	ctx := context.Background()
 	client, err := auth.Client(ctx);
@@ -36,22 +33,19 @@ func main() {
 	gsvc, err := gmailservice.New(ctx, client);
 	if err != nil {
 		log.Fatalf("could not create gmailservice, %v", err)
-	} else {
-		var wg sync.WaitGroup
-
-		const BufferSize = 10;
-		messages := make(chan []byte, BufferSize)
-
-    wg.Add(1)
-		go reader(messages, &wg)
-
-		gmailservice.Download(gsvc, messages)
-
-		wg.Wait()
-
 	}
-	log.Printf("all done")
 
+	var wg sync.WaitGroup
+
+	const BufferSize = 10;
+	messages := make(chan []byte, BufferSize)
+
+	wg.Add(1)
+	go reader(messages, &wg)
+
+	gmailservice.Download(gsvc, messages)
+
+	wg.Wait()
 }
 
 
