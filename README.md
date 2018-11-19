@@ -1,12 +1,17 @@
 # Calliope
-Email query and visualization
+Email query and visualization for observation and study of wild email monsters
+
+![angry faced envelope with arms waving](images/email_monster.png)
+
 
 ## Setting up Go
 
 Install using homebrew:
 
-`brew install go`
-`brew install dep` # Dependency management; not sure this is necessary
+```
+brew install go
+brew install dep # Dependency management
+```
 
 Go requires your project directory to be a subdirectory of `$GOPATH/src`.
 Example using `direnv` for user `me` on a Mac:
