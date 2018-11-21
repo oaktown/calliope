@@ -75,6 +75,8 @@ If you want data to persist (from [elastic-with-docker repo](https://github.com/
 
 Note: `data` has been added to .gitignore
 
+There's a Chrome extension called [ElasticSearch Head](https://chrome.google.com/webstore/detail/elasticsearch-head/ffmkiejjmecolpfloofpjologoblkegm) that you might find useful.
+
 # Setup a Google Cloud project
 
 TBD
