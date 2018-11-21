@@ -47,23 +47,28 @@ func New(ctx context.Context) (*Service, error) {
 
 // Save in ElasticSearch
 func Save(s *Service, byt []byte) (error) {
-  var data map[string]string
+  var data map[string]interface{}
 
   if err := json.Unmarshal(byt, &data); err != nil {
     log.Printf("json.Unmarshal failed, skipping meesage, err: ", err)
+    return err;
   }
   log.Println("saving Message ID: ", data["id"])
-
-  id := string(data["id"])
+  id := data["id"].(string)
 
 	record, err := s.client.Index().
 		Index(IndexName).
-		Id(id).
+    Id(id).
+    Type("document").
     BodyJson(string(byt)).
     Do(s.ctx);
 
   if err != nil {
-    log.Printf("Failed to index data id %s in index %s, err: %v, err", record.Id, record.Index, err)
+    if record != nil {
+      log.Printf("Failed to index data id %s in index %s, err: %v", record.Id, record.Index, err)
+    } else {
+      log.Printf("Failed to index. err: %v", err)
+    }
     return err;
   }
 	log.Printf("Indexed data id %s to index %s, type %s\n", record.Id, record.Index, record.Type)
