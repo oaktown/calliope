@@ -41,7 +41,13 @@ docker-compose -f docker-compose.local.yml up # this will run in the foreground
 ```
 
 This will download the docker image (if you don't have it already) and run it on port 9200.
-To test, you can try `curl http://localhost:9200". You should get a response like:
+To test on the terminal:
+
+```bash
+curl http://localhost:9200
+```
+
+You should get a response like:
 
 ```json
 {
@@ -71,7 +77,7 @@ docker-compose -f docker-compose.local.yml down
 
 If you want data to persist (from [elastic-with-docker repo](https://github.com/olivere/elastic-with-docker)):
 
-> Make sure to create a ./data directory locally and uncomment the volumnes section in Docker Compose file(s) if you want your data to be persistent.
+> Make sure to create a ./data directory locally and uncomment the volumes section in Docker Compose file(s) if you want your data to be persistent.
 
 Note: `data` has been added to .gitignore
 
