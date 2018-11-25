@@ -85,5 +85,71 @@ There's a Chrome extension called [ElasticSearch Head](https://chrome.google.com
 
 # Setup a Google Cloud project
 
-TBD
+We were inspired by https://github.com/vcollak/GmailContacts, which has nice
+setup instructions.
 
+# Build and run the app
+
+When building the app `-i` will build all the dependencies and `-v` prints
+out what its building.  The following commands will generate an executable
+called `calliope` in the same directory and then run it:
+
+```bash
+go build -i -v
+./calliope
+```
+
+Initial output:
+```
+====> Get ready to authenticate....
+
+Open the link below in your browser. To give permission to view your email, click 'Allow' then copy the code...
+
+https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=551888752777-k3ahicnth2t1n7c08jm2vhqempvi21ek.apps.googleusercontent.com&redirect_uri=urn%3Aietf%3Awg%3Aoauth%3A2.0%3Aoob&response_type=code&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.readonly&state=state-token
+
+Paste the code here:
+```
+
+Paste the link into a browser and you will need to grant the app permission
+to read your email.  Then it will display a new page with an access code.  If
+you copy and paste into your terminal, it will print out some debugging logs.
+(The app is a work in progress, and this is as far as we've gotten.)
+
+
+```
+caching token locally: /Users/sallen/.credentials/calliope.json
+```
+
+Note: it caches a token locally, but reading it didn't actually work, so
+that is disabled for now ([issue#2])(https://github.com/oaktown/calliope/issues/2)
+
+
+```
+got client
+2018/11/25 11:50:13 Retrieving messages starting on 2018/01/01
+2018/11/25 11:50:14 Processing 100 messages...
+```
+
+It's actually truncating at 6 messages to allow for quicker iterations while
+we figure out how to decode the messages and store in ElasticSearch
+
+```
+Sending Message ID: 1674c66d7eb92b56
+2018/11/25 11:50:14 saving Message ID:  1674c66d7eb92b56
+Sending Message ID: 1674c52e45369cb2
+Sending Message ID: 1674c4fef3f29c46
+Sending Message ID: 1674c43db8e5434b
+2018/11/25 11:50:15 Indexed data id 1674c66d7eb92b56 to index mail, type document
+2018/11/25 11:50:15 saving Message ID:  1674c52e45369cb2
+Sending Message ID: 1674c3d0d75bb5a0
+2018/11/25 11:50:15 Indexed data id 1674c52e45369cb2 to index mail, type document
+2018/11/25 11:50:15 saving Message ID:  1674c4fef3f29c46
+2018/11/25 11:50:15 Indexed data id 1674c4fef3f29c46 to index mail, type document
+2018/11/25 11:50:15 saving Message ID:  1674c43db8e5434b
+Sending Message ID: 1674c3c1f389215b
+2018/11/25 11:50:15 Indexed data id 1674c43db8e5434b to index mail, type document
+2018/11/25 11:50:15 saving Message ID:  1674c3d0d75bb5a0
+2018/11/25 11:50:15 Indexed data id 1674c3d0d75bb5a0 to index mail, type document
+2018/11/25 11:50:15 saving Message ID:  1674c3c1f389215b
+2018/11/25 11:50:15 Indexed data id 1674c3c1f389215b to index mail, type document
+```
