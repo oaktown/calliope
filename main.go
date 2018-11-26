@@ -20,10 +20,7 @@ func reader(s *store.Service, messageChannel <-chan []byte, wg *sync.WaitGroup) 
 func main() {
 
   ctx := context.Background()
-  client, err := auth.Client(ctx);
-  if err != nil {
-    log.Fatalf("could not create client, %v", err)
-  }
+  client := auth.Client(ctx);
   gsvc, err := gmailservice.New(ctx, client);
   if err != nil {
     log.Fatalf("could not create gmailservice, %v", err)
@@ -46,5 +43,3 @@ func main() {
 
   wg.Wait()
 }
-
-

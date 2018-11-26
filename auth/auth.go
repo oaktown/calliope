@@ -1,69 +1,56 @@
+/**
+ * @license
+ * Copyright Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+// [START gmail_quickstart]
+
 package auth
 
 import (
-  "fmt"
-  "log"
-  "encoding/json"
-  "io/ioutil"
-  "net/http"
-  "os"
-  "os/user"
-  "path/filepath"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
 
-  "google.golang.org/api/gmail/v1"
-  "golang.org/x/net/context"
-  "golang.org/x/oauth2"
-  "golang.org/x/oauth2/google"
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/gmail/v1"
 )
 
-func oauthConfig() (*oauth2.Config, error) {
-  const Configfile = "client_secret.json"
-  secret, err := ioutil.ReadFile(Configfile);
-  if err != nil {
-    log.Printf("could not read config file: %v\n", Configfile)
-    return nil, err
-  }
-
-  config, err := google.ConfigFromJSON(secret, gmail.GmailReadonlyScope)
-  if err != nil {
-    return nil, err
-  }
-
-  return config, nil
-
+// Retrieve a token, saves the token, then returns the generated client.
+func getClient(config *oauth2.Config, ctx context.Context) *http.Client {
+	// The file token.json stores the user's access and refresh tokens, and is
+	// created automatically when the authorization flow completes for the first
+	// time.
+	tokFile := "oauth_token.json"
+	tok, err := tokenFromFile(tokFile)
+	if err != nil {
+		tok = getTokenFromWeb(config)
+		saveToken(tokFile, tok)
+	}
+	return config.Client(ctx, tok)
 }
 
-// localTokenFilename generates credential file path
-func localTokenFilename() (string, error) {
-  const Directory = ".credentials"
-  usr, err := user.Current()
-  if err != nil {
-    log.Printf("could't get os user, not able to cache token locally: %v\n", err)
-    return "", err
-  } else {
-    tokenCacheDir := filepath.Join(usr.HomeDir, Directory)
-    os.MkdirAll(tokenCacheDir, 0700)
-    return filepath.Join(tokenCacheDir,"calliope.json"), nil
-  }
-}
+// Request a token from the web, then returns the retrieved token.
+func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
+	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 
-// saveToken uses a file path to create a file and store the
-// token in it.
-func saveToken(file string, t *oauth2.Token) {
-  fmt.Printf("caching token locally: %s\n", file);
-
-  err := ioutil.WriteFile(file, []byte(t.AccessToken), 0644)
-  if err != nil {
-    log.Printf("could not cache token locally (%v), you will need to log in again next time\n", err)
-  }
-}
-
-
-// getTokenFromWeb uses a Google OAuth config to request an auth token.
-// It returns the retrieved Token.
-func tokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
-  authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-  fmt.Println("")
+	fmt.Println("")
   fmt.Println("====> Get ready to authenticate....")
   fmt.Println("")
   fmt.Printf("Open the link below in your browser. To give permission to view your email, click 'Allow'"+
@@ -71,65 +58,52 @@ func tokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
   fmt.Println("")
   fmt.Print("Paste the code here:")
 
-  var code string
-  var tok *oauth2.Token
-  var err error
+	var authCode string
+	if _, err := fmt.Scan(&authCode); err != nil {
+		log.Fatalf("Unable to read authorization code: %v", err)
+	}
 
-  if _, err := fmt.Scan(&code); err != nil {
-    log.Printf("Unable to read authorization code, err: %v", err)
-    return nil, err
-  }
-
-  // Exchange converts an authorization code into a token.
-  if tok, err = config.Exchange(oauth2.NoContext, code); err != nil {
-    log.Printf("Unable to retrieve token from web code, err: %v", err)
-    return nil, err
-  }
-  return tok, nil
+	tok, err := config.Exchange(context.TODO(), authCode)
+	if err != nil {
+		log.Fatalf("Unable to retrieve token from web: %v", err)
+	}
+	return tok
 }
 
+// Retrieves a token from a local file.
+func tokenFromFile(file string) (*oauth2.Token, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	tok := &oauth2.Token{}
+	err = json.NewDecoder(f).Decode(tok)
+	return tok, err
+}
 
+// Saves a token to a file path.
+func saveToken(path string, token *oauth2.Token) {
+	fmt.Printf("Saving credential file to: %s\n", path)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		log.Fatalf("Unable to cache oauth token: %v", err)
+	}
+	defer f.Close()
+	json.NewEncoder(f).Encode(token)
+}
 
-// Client returns an OAuth http client
-func Client(ctx context.Context) (*http.Client, error) {
-  fmt.Printf("hello auth\n")
+func Client(ctx context.Context) (*http.Client) {
+	b, err := ioutil.ReadFile("client_secret.json")
+	if err != nil {
+		log.Fatalf("Unable to read client secret file: %v", err)
+	}
 
-  var err error;
-  var token oauth2.Token
-  var t *oauth2.Token;
-
-  c, err := oauthConfig()
-  if err != nil {
-    return nil, err
-  }
-
-  // ----------------------------
-  // code below seems to work, but doesn't actually
-  // Unable to retrieve messages:
-  // oauth2: token expired and refresh token is not set
-  // ----------------------------
-  cacheFile, err := localTokenFilename()
-  if false {
-    if err == nil {
-      fmt.Printf("checking local file: %s\n", cacheFile)
-      if raw, err := ioutil.ReadFile(cacheFile); err == nil {
-        fmt.Printf("got client from local file: %s\n", cacheFile)
-        json.Unmarshal(raw, &token)
-        t = &token;
-      }
-    }
-  }
-
-  if t == nil {
-    fmt.Printf("need to get from Web\n")
-    if t, err = tokenFromWeb(c); err != nil {
-      return nil, err
-    }
-    saveToken(cacheFile, t)		// ignore error, ok not to have local file
-  }
-
-  client := c.Client(ctx, t);
-  fmt.Printf("got client\n")
-
-  return client, err;
+	// If modifying these scopes, delete your previously saved token.json.
+	config, err := google.ConfigFromJSON(b, gmail.GmailReadonlyScope)
+	if err != nil {
+		log.Fatalf("Unable to parse client secret file to config: %v", err)
+	}
+	client := getClient(config, ctx)
+  return client
 }
