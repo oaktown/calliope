@@ -1,25 +1,19 @@
 package main
 
 import (
-  "fmt"
   "log"
   "calliope/auth"
   "calliope/gmailservice"
-  "encoding/json"
+  "calliope/store"
   "sync"
   "golang.org/x/net/context"
 )
 
-func reader(messageChannel <-chan []byte, wg *sync.WaitGroup) {
-  var data map[string]interface{}
-
-  defer wg.Done()		// WaitGroup done when this routines exits
+func reader(s *store.Service, messageChannel <-chan []byte, wg *sync.WaitGroup) {
+  defer wg.Done()  // WaitGroup done when this routines exits
 
   for byt := range messageChannel { // reads from channel until it's closed
-    if err := json.Unmarshal(byt, &data); err != nil {
-      log.Printf("json.Unmarshal failed, skipping meesage, err: ", err)
-    }
-    fmt.Println("recieved Message ID: ", data["id"])
+    store.Save(s, byt)
   }
 }
 
@@ -35,13 +29,18 @@ func main() {
     log.Fatalf("could not create gmailservice, %v", err)
   }
 
+  s, err := store.New(ctx);
+  if err != nil {
+    log.Fatalf("could not create store, %v", err)
+  }
+
   var wg sync.WaitGroup
 
   const BufferSize = 10;
   messages := make(chan []byte, BufferSize)
 
   wg.Add(1)
-  go reader(messages, &wg)
+  go reader(s, messages, &wg)
 
   gmailservice.Download(gsvc, messages)
 
