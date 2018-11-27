@@ -5,29 +5,21 @@ import (
   "log"
   "github.com/olivere/elastic"
   "golang.org/x/net/context"
+  // "calliope/store/elasticsearch"
+  // "calliope/store/json"
 )
 
 
 // Service struct to keep state we need
-type Elasticsearch struct {
+type Service struct {
   client  *elastic.Client
   ctx     context.Context
-}
-
-type File struct {
-  filename string
-}
-
-NewFile
-
-func (f *File) Save() err {
-
 }
 
 const IndexName = "mail"
 
 // New returns Elastic initialized with elastic client
-func NewES(ctx context.Context) (*Service, error) {
+func New(ctx context.Context) (*Service, error) {
 
   client, err := elastic.NewClient();
   if err != nil {
@@ -84,6 +76,3 @@ func (s *Service) Save(byt []byte) error {
 
   return nil;
 }
-
-
-type FileService
