@@ -9,15 +9,25 @@ import (
 
 
 // Service struct to keep state we need
-type Service struct {
+type Elasticsearch struct {
   client  *elastic.Client
   ctx     context.Context
 }
 
+type File struct {
+  filename string
+}
+
+NewFile
+
+func (f *File) Save() err {
+
+}
+
 const IndexName = "mail"
 
-// New returns query.Service initialized with elastic client
-func New(ctx context.Context) (*Service, error) {
+// New returns Elastic initialized with elastic client
+func NewES(ctx context.Context) (*Service, error) {
 
   client, err := elastic.NewClient();
   if err != nil {
@@ -74,3 +84,6 @@ func (s *Service) Save(byt []byte) error {
 
   return nil;
 }
+
+
+type FileService
