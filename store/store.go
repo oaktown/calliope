@@ -45,8 +45,7 @@ func New(ctx context.Context) (*Service, error) {
   return s, nil
 }
 
-// Save in ElasticSearch
-func Save(s *Service, byt []byte) (error) {
+func (s *Service) Save(byt []byte) error {
   var data map[string]interface{}
 
   if err := json.Unmarshal(byt, &data); err != nil {
