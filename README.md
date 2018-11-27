@@ -117,12 +117,10 @@ you copy and paste into your terminal, it will print out some debugging logs.
 
 
 ```
-caching token locally: /Users/sallen/.credentials/calliope.json
+Saving credential file to: oauth_token.json
 ```
 
-Note: it caches a token locally, but reading it didn't actually work, so
-that is disabled for now ([issue#2])(https://github.com/oaktown/calliope/issues/2)
-
+Note: Next time, it will use the saved token instead of prompting you.
 
 ```
 got client
