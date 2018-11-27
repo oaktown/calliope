@@ -22,7 +22,7 @@ func main() {
   ctx := context.Background()
   client, err := auth.Client(ctx);
   if err != nil {
-    log.Fatalf("could not create client, %v", err)
+    log.Fatalf("could not get auth client, %v", err)
   }
   gsvc, err := gmailservice.New(ctx, client);
   if err != nil {
@@ -46,5 +46,3 @@ func main() {
 
   wg.Wait()
 }
-
-
