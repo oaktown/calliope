@@ -5,8 +5,13 @@ import (
   "log"
   "github.com/olivere/elastic"
   "golang.org/x/net/context"
+  // "calliope/store/elasticsearch"
+  // "calliope/store/json"
 )
 
+type Storable interface {
+  Save([]byte) error
+}
 
 // Service struct to keep state we need
 type Service struct {
@@ -16,7 +21,7 @@ type Service struct {
 
 const IndexName = "mail"
 
-// New returns query.Service initialized with elastic client
+// New returns Elastic initialized with elastic client
 func New(ctx context.Context) (*Service, error) {
 
   client, err := elastic.NewClient();
