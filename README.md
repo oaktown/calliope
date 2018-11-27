@@ -151,3 +151,15 @@ Sending Message ID: 1674c3c1f389215b
 2018/11/25 11:50:15 saving Message ID:  1674c3c1f389215b
 2018/11/25 11:50:15 Indexed data id 1674c3c1f389215b to index mail, type document
 ```
+
+### Deleting index
+You can use `curl` to delete an email from the index using its id:
+```bash
+curl -XDELETE localhost:9200/mail/document/16752895eba45df6
+```
+
+Or you can delete the entire index:
+```bash
+curl -XDELETE localhost:9200/mail
+```
+
