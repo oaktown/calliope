@@ -9,8 +9,8 @@ import (
 	"sync"
 )
 
-func reader(s *store.Service, messageChannel <-chan []byte, wg *sync.WaitGroup) {
-	defer wg.Done() // WaitGroup done when this routines exits
+func reader(s store.Storable, messageChannel <-chan []byte, wg *sync.WaitGroup) {
+  defer wg.Done()  // WaitGroup done when this routines exits
 
   for byt := range messageChannel { // reads from channel until it's closed
     s.Save(byt)

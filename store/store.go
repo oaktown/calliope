@@ -9,6 +9,9 @@ import (
   // "calliope/store/json"
 )
 
+type Storable interface {
+  Save([]byte) error
+}
 
 // Service struct to keep state we need
 type Service struct {
