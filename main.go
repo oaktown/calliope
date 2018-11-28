@@ -1,12 +1,12 @@
 package main
 
 import (
-	"calliope/gmailservice"
-	"calliope/store"
+	github.com/oaktown/calliope/gmailservice"
+	github.com/oaktown/calliope/store"
 	"log"
 	"sync"
 
-	"github.com/oaktownlabs/calliope/auth"
+	"github.com/oaktown/calliope/auth"
 	"golang.org/x/net/context"
 )
 

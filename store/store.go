@@ -5,8 +5,6 @@ import (
   "log"
   "github.com/olivere/elastic"
   "golang.org/x/net/context"
-  // "calliope/store/elasticsearch"
-  // "calliope/store/json"
 )
 
 type Storable interface {
