@@ -45,7 +45,7 @@ func main() {
 
 	var inboxUrl string
 	if os.Getenv("CALLIOPE_INBOX_URL") == "" {
-		inboxUrl = "https://mail.google.com/mail/#inbox"
+		inboxUrl = "https://mail.google.com/mail/#inbox/"
 	} else {
 		inboxUrl = os.Getenv("CALLIOPE_INBOX_URL")
 	}

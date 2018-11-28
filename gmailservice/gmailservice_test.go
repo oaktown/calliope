@@ -11,8 +11,10 @@ import (
 	"strings"
 )
 
+var expectedBody = "How are you doing? Some special characters: <>?$/:-)"
+
 func getEmailJson() []byte {
-	jsonFile, err := os.Open("../gmail_message.json") // Slack notification
+	jsonFile, err := os.Open("gmail_message.json") // Slack notification
 
 	if err != nil {
 		log.Fatalf("Couldn't open gmail_message.json. Error: %v", err)
@@ -48,22 +50,12 @@ func TestExtractHeader(t *testing.T) {
 	t.Skip()
 }
 
-func TestJsonToGmail (t *testing.T) {
-	emailJson := getEmailJson()
-	gmailMsg, _ := JsonToGmail(emailJson)
-	expected := "16753a2ae7f95997"
-	if gmailMsg.Id != expected {
-		t.Errorf("Expected %v but got: %v", expected, gmailMsg.Id)
-	}
-}
-
 func TestBodyText(t *testing.T) {
 	emailJson := getEmailJson()
 	gmailMsg, _ := JsonToGmail(emailJson)
 
-	if body := BodyText(gmailMsg); !strings.Contains(body, "ultrasaurus") {
-		t.Errorf("Body was not correctly decoded. Should have an ultrasaurus. Instead got:\n\n%v\n\n", body)
-	}
+	if body := BodyText(gmailMsg); !strings.Contains(body, expectedBody) {
+		t.Errorf("Body is incorrect. Should have been:\n\n%v\n\nInstead, got:\n\n%v\n\n", expectedBody, body)	}
 }
 
 func TestGmailToMessage(t *testing.T) {
@@ -73,7 +65,7 @@ func TestGmailToMessage(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unexpected error calling JsonForElasticsearch: %v", err)
 	}
-	if body := msg.Body; !strings.Contains(body, "ultrasaurus") {
-		t.Errorf("Body is incorrect. Should have an ultrasaurus. Instead got:\n\n%v\n\n", body)
+	if body := msg.Body; !strings.Contains(body, expectedBody) {
+		t.Errorf("Body is incorrect. Should have been:\n\n%v\n\nInstead, got:\n\n%v\n\n", expectedBody, body)
 	}
 }
