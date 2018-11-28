@@ -31,8 +31,22 @@ func New(ctx context.Context, client *http.Client) (*GmailService, error) {
   return g, nil
 }
 
+type JsonForElasticsearch struct {
+	Id string
+	Date Time
+	To string
+	Cc string
+	Bcc string
+	From string
+	ReplyTo []string // can get multiple reply-to headers in an email
+	Subject string
+	Body string // the thing we're decoding
+	Source string // original json
+}
+
+
 // Download doesn't do anything yet
-func Download(g *GmailService, messages chan<- []byte) {
+func Download(g *GmailService, messages chan<- []JsonForElasticsearch) {
   lastDate := "2018/01/01"
   var pageToken = ""
 
@@ -67,12 +81,17 @@ func Download(g *GmailService, messages chan<- []byte) {
         continue
       }
       fmt.Printf("Sending Message ID: %v\n", m.Id)
-      byt, _ := json.MarshalIndent(msg, "", "\t")
-      messages <- byt
+			byt, _ := json.MarshalIndent(msg, "", "\t")
+			// TODO: Use a JsonForElasticsearch instead of bytestream
+			// something like:
+			// doc := GmailDoc{source: byt}
+			// messages <- doc.JsonForElasticsearch()
+			messages <- byt
     }
     close(messages)
     return;
 }
+
 
 type GmailDoc struct {
   source []byte
@@ -119,8 +138,11 @@ func (doc *GmailDoc) BodyText() (string, error) {
       body, _ := base64.URLEncoding.DecodeString(encodedBody)
       return string(body), nil
     }
-  }
+	}
+//	doc.source = "" // TODO: Figure out golang thing (nothing to do with this method). Can we mutate ourself?
   return "", nil // TODO: is this the right thing to do when not found? Possibly should look at body field?
 }
 
-
+func (doc *GmailDoc) JsonForElasticsearch() JsonForElasticsearch {
+  // returns json in the format we want to save in Elasticsearch
+}
