@@ -9,23 +9,35 @@ import (
 	"strings"
 )
 
-
-func TestBodyText(t *testing.T) {
+func getEmailJson() []byte {
 	jsonFile, err := os.Open("../gmail_message.json") // Slack notification
 
 	if err != nil {
 		log.Fatalf("Couldn't open gmail_message.json. Error: %v", err)
 	}
 	
-	// defer jsonFile.Close()
-
 	json, _ := ioutil.ReadAll(jsonFile) // theoretically the same thing that the gmail API returns
 	// log.Printf("as a string: %v", string(json))
 	jsonFile.Close()
-	doc := GmailDoc{source: json}
+	return json
+}
+
+func TestBodyText(t *testing.T) {
+	doc := GmailDoc{source: getEmailJson()}
 
 	if body := doc.BodyText(); !strings.Contains(body, "ultrasaurus") {
 		t.Errorf("Body was not correctly decoded. Should have an ultrasaurus. Instead got:\n\n%v\n\n", body)
 	}
 }
 
+func TestGmailToMessage(t *testing.T) {
+	doc := GmailDoc{source: getEmailJson()}
+  rawGmail := doc.JsonData()
+	msg, err := doc.GmailToMessage(rawGmail)
+	if err != nil {
+		t.Errorf("Unexpected error calling JsonForElasticsearch: %v", err)
+	}
+	if body := jsonStruct.Body; !strings.Contains(body, "ultrasaurus") {
+		t.Errorf("Body is incorrect. Should have an ultrasaurus. Instead got:\n\n%v\n\n", body)
+	}
+}

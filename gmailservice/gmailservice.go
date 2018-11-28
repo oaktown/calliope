@@ -3,21 +3,54 @@ package gmailservice
 import (
   "context"
   "fmt"
-  // "bytes"
+	"time"
   "log"
   "encoding/json"
   "net/http"
   "google.golang.org/api/gmail/v1"
-  "encoding/base64"
-  // "github.com/kr/pretty"
+	"encoding/base64"
+	"strconv"
 )
 
+type Message struct {
+	Id string
+	Date time.Time
+	To string
+	Cc string
+	From string
+	Subject string
+	Body string // the thing we're decoding
+	Source RawGmailMessage
+}
 
-// GmailService keeps state we need
+type RawGmailMessage struct {
+  HistoryId string
+  Id string
+  InternalDate string
+  LabelIds []string
+  Payload RawGmailMessagePayload
+}
+
+type RawGmailMessagePayload struct {
+  Parts []RawGmailMessagePayloadPart
+}
+
+type RawGmailMessagePayloadPart struct {
+  Body struct {
+    Data string
+  }
+  MimeType string
+}
+
+// TODO: Remove this type
+type GmailDoc struct {
+  source []byte
+}
+
+// TODO: Remove this type
 type GmailService struct {
   svc         *gmail.Service
 }
-
 
 // New returns GmailService initialized with given client
 func New(ctx context.Context, client *http.Client) (*GmailService, error) {
@@ -31,7 +64,9 @@ func New(ctx context.Context, client *http.Client) (*GmailService, error) {
   return g, nil
 }
 
-// Download doesn't do anything yet
+// TODO: 1. Feature: Channel is sent Messages (e.g. w/ decoded body)
+// TODO: 2. Refactor: Remove the use of a channel – this function should return []Message
+// TODO (cont'd) and lastDate, pageToken, and batchSize should be parameters
 func Download(g *GmailService, messages chan<- []byte) {
   lastDate := "2018/01/01"
   var pageToken = ""
@@ -67,52 +102,59 @@ func Download(g *GmailService, messages chan<- []byte) {
         continue
       }
       fmt.Printf("Sending Message ID: %v\n", m.Id)
-      byt, _ := json.MarshalIndent(msg, "", "\t")
-      messages <- byt
+			byt, _ := json.MarshalIndent(msg, "", "\t")
+			// TODO: Use a JsonForElasticsearch instead of bytestream
+			// something like:
+			// doc := GmailDoc{source: byt}
+			// messages <- doc.JsonForElasticsearch()
+			messages <- byt
     }
     close(messages)
     return;
 }
 
-type GmailDoc struct {
-  source []byte
-}
-
-
-
-func (doc *GmailDoc) JsonData() (map[string]interface{}) {
-  // should memoize
-  data := make(map[string]interface{})
-  // log.Printf("doc.source: %v", string(doc.source))
+func (doc *GmailDoc) JsonData() (RawGmailMessage, error) {
+  var data RawGmailMessage
   if err := json.Unmarshal(doc.source, &data); err != nil {    
     log.Printf("json.Unmarshal failed, skipping message, err: %v", err)
-    return nil;
+    return data, err
   }
-  return data
+  return data, nil
 }
 
-func (doc *GmailDoc) BodyText() string {
-  data := doc.JsonData()
-  parts := (data["payload"].(map[string]interface{}))["parts"]
-  // log.Printf("parts: %v", parts)
-  for _, part := range parts.([]interface{}) {
-    part := part.(map[string]interface{})
-    if part["mimeType"] == "text/plain" {
-      encodedBody := part["body"].(map[string]interface{})["data"].(string)
-      // body := base64.NewDecoder(base64.URLEncoding, bytes.NewBufferString(encodedBody))
-      log.Printf("body: %v", encodedBody)
-      body, _ := base64.URLEncoding.DecodeString(encodedBody)
-      // func decode(s string) {
-      //   dec := base64.NewDecoder(base64.URLEncoding, bytes.NewBufferString(s))
-      //   n, err := io.Copy(os.Stdout, dec)
-      //   fmt.Printf("\n%d %v\n", n, err)
-      // }
-      return string(body)
-      
-      // return fmt.Sprintf("%v\n\n\n%v", string(body), err)
-    }
+// TODO: Take a raw gmail and return body text?
+// TODO: BodyText could be in the body field instead of in the payload. We
+// should probably add logic to handle that case, or at least log or something. 
+func (doc *GmailDoc) BodyText() (string) {
+  data, err := doc.JsonData()
+  if err != nil {
+    return ""
   }
+  parts := data.Payload.Parts
+  for _, part := range parts {
+    if part.MimeType == "text/plain" {
+      encodedBody := part.Body.Data
+      // log.Printf("body: %v", encodedBody)
+      body, _ := base64.URLEncoding.DecodeString(encodedBody)
+      return string(body)
+    }
+	}
   return ""
 }
 
-
+func GmailToMessage(gmail RawGmailMessage) (Message, error) {
+	internalDate, _ := strconv.ParseInt(gmail.InternalDate, 10, 64)
+	date := time.Unix(internalDate / 1000, 0)
+	doc := GmailDoc{source: gmail}
+	message := Message {
+		Id: gmail.Id,
+		Date: date,
+		To: "",
+		Cc: "",
+		From: "",
+		Subject: "",
+  	Body: doc.BodyText(),
+		Source: gmail,
+	}	
+	return message, nil
+}
