@@ -3,10 +3,12 @@ package gmailservice
 import (
   "context"
   "fmt"
+  // "bytes"
   "log"
   "encoding/json"
   "net/http"
   "google.golang.org/api/gmail/v1"
+  "encoding/base64"
   // "github.com/kr/pretty"
 )
 
@@ -81,7 +83,7 @@ type GmailDoc struct {
 func (doc *GmailDoc) JsonData() (map[string]interface{}) {
   // should memoize
   data := make(map[string]interface{})
-  log.Printf("doc.source: %v", string(doc.source))
+  // log.Printf("doc.source: %v", string(doc.source))
   if err := json.Unmarshal(doc.source, &data); err != nil {    
     log.Printf("json.Unmarshal failed, skipping message, err: %v", err)
     return nil;
@@ -92,17 +94,25 @@ func (doc *GmailDoc) JsonData() (map[string]interface{}) {
 func (doc *GmailDoc) BodyText() string {
   data := doc.JsonData()
   parts := (data["payload"].(map[string]interface{}))["parts"]
-  log.Printf("parts: %v", parts)
+  // log.Printf("parts: %v", parts)
   for _, part := range parts.([]interface{}) {
     part := part.(map[string]interface{})
     if part["mimeType"] == "text/plain" {
-      return part["body"].(map[string]interface{})["data"].(string)
+      encodedBody := part["body"].(map[string]interface{})["data"].(string)
+      // body := base64.NewDecoder(base64.URLEncoding, bytes.NewBufferString(encodedBody))
+      log.Printf("body: %v", encodedBody)
+      body, _ := base64.URLEncoding.DecodeString(encodedBody)
+      // func decode(s string) {
+      //   dec := base64.NewDecoder(base64.URLEncoding, bytes.NewBufferString(s))
+      //   n, err := io.Copy(os.Stdout, dec)
+      //   fmt.Printf("\n%d %v\n", n, err)
+      // }
+      return string(body)
+      
+      // return fmt.Sprintf("%v\n\n\n%v", string(body), err)
     }
   }
   return ""
-  // part["mimeType"] == "text/plain"
-  // part["body"]["data"] // decode this
-  // return "something else"
 }
 
 
