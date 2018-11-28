@@ -12,35 +12,7 @@ import (
 	"google.golang.org/api/gmail/v1"
 )
 
-// GmailService keeps state we need.
-type GmailService struct {
-	svc *gmail.Service
-}
-
-// New returns a GmailService value initialized with given http client.
-func New(ctx context.Context, client *http.Client) (*GmailService, error) {
-	svc, err := gmail.New(client)
-	if err != nil {
-		log.Print("could not create gmail client,", err)
-		return nil, err
-	}
-
-	g := GmailService{
-		svc: svc,
-	}
-	return &g, nil
-
-	// g := new(GmailService)
-	// svc, err := gmail.New(client)
-	// if err != nil {
-	//   log.Printf("could not create gmail client, %v", err)
-	//   return nil, err
-	// }
-	// g.svc = svc;
-	// return g, nil
-}
-
-type JsonForElasticsearch struct {
+type Message struct {
 	Id      string
 	Date    time.Time
 	To      string
@@ -53,68 +25,70 @@ type JsonForElasticsearch struct {
 	Source  string // original json
 }
 
+// New returns a GmailService value initialized with given http client.
+func New(ctx context.Context, client *http.Client) (*gmail.Service, error) {
+	gs, err := gmail.New(client)
+	if err != nil {
+		log.Print("could not create gmail client,", err)
+		return nil, err
+	}
+	return gs, nil
+}
+
 // Download doesn't do anything yet
 // TODO: Change this to use a channel of type JsonForElasticsearch
 // func Download(g *GmailService, messages chan<- JsonForElasticsearch) {
-func Download(g *GmailService, messages chan<- []byte) {
-	lastDate := "2018/01/01"
-	var pageToken = ""
-
-	var req *gmail.UsersMessagesListCall
-
-	if lastDate == "" {
-		log.Println("Retrieving all messages.")
-		req = g.svc.Users.Messages.List("me")
-
-	} else {
-		log.Println("Retrieving messages starting on", lastDate)
-		req = g.svc.Users.Messages.List("me").Q("after: " + lastDate)
-	}
-
+func Download(gs *gmail.Service, lastDate string, pageToken string, batchSize int) ([]Message, error) {
+	log.Println("Retrieving messages starting on", lastDate)
+	query := gs.Users.Messages.List("me").Q("after: " + lastDate)
+	
 	if pageToken != "" {
-		req.PageToken(pageToken)
+		query.PageToken(pageToken)
 	}
-	r, err := req.Do()
-
+	result, err := query.Do()
 	if err != nil {
 		log.Printf("Unable to retrieve messages: %v", err)
-		return
-		//continue
+		return nil, err
 	}
 
-	log.Printf("Processing %v messages...\n", len(r.Messages))
+	log.Printf("Processing %v messages...\n", len(result.Messages))
 
-	for _, m := range r.Messages[:6] {
-		msg, err := g.svc.Users.Messages.Get("me", m.Id).Do()
+	var messages []Message
+	for _, msgInfo := range result.Messages[:6] {
+		msg, err := gs.Users.Messages.Get("me", msgInfo.Id).Do()
 		if err != nil {
-			log.Printf("Unable to retrieve message %v: %v", m.Id, err)
+			log.Printf("Unable to retrieve message %v: %v", msgInfo.Id, err)
 			continue
 		}
-		fmt.Printf("Sending Message ID: %v\n", m.Id)
-		byt, _ := json.MarshalIndent(msg, "", "\t")
-		// TODO: Use a JsonForElasticsearch instead of bytestream
-		// something like:
-		// doc := GmailDoc{source: byt}
-		// messages <- doc.JsonForElasticsearch()
-		messages <- byt
+
+		// DECODING
+		{
+			// fmt.Printf("Found Message ID: %v\n", msg.Id)
+			// data, err := json.MarshalIndent(msg, "", "\t")
+			// if err != nil {
+			// 	return nil, err
+			// }
+
+			// var gm GmailMessage
+			// if err := json.Unmarshal(data, &gm); err != nil {
+			// 	log.Printf("json.Unmarshal failed, skipping message, err: %v", err)
+			// 	return nil, err
+			// }
+
+			// TODO: Use a JsonForElasticsearch instead of bytestream
+			// something like:
+			// doc := GmailDoc{source: byt}
+			// messages <- doc.JsonForElasticsearch()
+		}
+
+		var m Message
+		messages = append(messages, m)
 	}
-	close(messages)
-	return
+	return messages, nil
 }
 
 type GmailDoc struct {
 	source []byte
-}
-
-type GmailMessagePart struct {
-	Body struct {
-		Data string `json:"data"`
-	} `json:"body"`
-	MimeType string `json:"mimeType"`
-}
-
-type GmailMessagePayload struct {
-	Parts []GmailMessagePart `json:"parts"`
 }
 
 type GmailMessage struct {
@@ -123,6 +97,17 @@ type GmailMessage struct {
 	InternalDate string   `json:"internalDate"`
 	LabelIds     []string `json:labelIds`
 	Payload      GmailMessagePayload
+}
+
+type GmailMessagePayload struct {
+	Parts []GmailMessagePart `json:"parts"`
+}
+
+type GmailMessagePart struct {
+	Body struct {
+		Data string `json:"data"`
+	} `json:"body"`
+	MimeType string `json:"mimeType"`
 }
 
 func (doc *GmailDoc) JsonData() (GmailMessage, error) {
