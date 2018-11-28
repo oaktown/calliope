@@ -1,12 +1,13 @@
 package main
 
 import (
-	"calliope/auth"
 	"calliope/gmailservice"
 	"calliope/store"
-	"golang.org/x/net/context"
 	"log"
 	"sync"
+
+	"github.com/oaktownlabs/calliope/auth"
+	"golang.org/x/net/context"
 )
 
 func reader(s store.Storable, messageChannel <-chan []byte, wg *sync.WaitGroup) {
