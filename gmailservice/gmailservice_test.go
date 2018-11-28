@@ -24,7 +24,7 @@ func TestBodyText(t *testing.T) {
 	jsonFile.Close()
 	doc := GmailDoc{source: json}
 
-	if body := doc.BodyText(); !strings.Contains(body, "ultrasaurus") {
+	if body, _ := doc.BodyText(); !strings.Contains(body, "ultrasaurus") {
 		t.Errorf("Body was not correctly decoded. Should have an ultrasaurus. Instead got:\n\n%v\n\n", body)
 	}
 }

@@ -78,41 +78,49 @@ type GmailDoc struct {
   source []byte
 }
 
-
-
-func (doc *GmailDoc) JsonData() (map[string]interface{}) {
-  // should memoize
-  data := make(map[string]interface{})
-  // log.Printf("doc.source: %v", string(doc.source))
-  if err := json.Unmarshal(doc.source, &data); err != nil {    
-    log.Printf("json.Unmarshal failed, skipping message, err: %v", err)
-    return nil;
-  }
-  return data
+type GmailMessagePart struct {
+  Body struct {
+    Data string `json:"data"`
+  } `json:"body"`
+  MimeType string `json:"mimeType"`
 }
 
-func (doc *GmailDoc) BodyText() string {
-  data := doc.JsonData()
-  parts := (data["payload"].(map[string]interface{}))["parts"]
-  // log.Printf("parts: %v", parts)
-  for _, part := range parts.([]interface{}) {
-    part := part.(map[string]interface{})
-    if part["mimeType"] == "text/plain" {
-      encodedBody := part["body"].(map[string]interface{})["data"].(string)
-      // body := base64.NewDecoder(base64.URLEncoding, bytes.NewBufferString(encodedBody))
+type GmailMessagePayload struct {
+  Parts []GmailMessagePart `json:"parts"`
+}
+
+type GmailMessage struct {
+  HistoryId string `json:"historyId"`
+  Id string `json:"id"`
+  InternalDate string `json:"internalDate"`
+  LabelIds []string `json:labelIds`
+  Payload GmailMessagePayload
+}
+
+func (doc *GmailDoc) JsonData() (GmailMessage, error) {
+  var data GmailMessage
+  if err := json.Unmarshal(doc.source, &data); err != nil {    
+    log.Printf("json.Unmarshal failed, skipping message, err: %v", err)
+    return data, err
+  }
+  return data, nil
+}
+
+func (doc *GmailDoc) BodyText() (string, error) {
+  data, err := doc.JsonData()
+  if err != nil {
+    return "", err
+  }
+  parts := data.Payload.Parts
+  for _, part := range parts {
+    if part.MimeType == "text/plain" {
+      encodedBody := part.Body.Data
       log.Printf("body: %v", encodedBody)
       body, _ := base64.URLEncoding.DecodeString(encodedBody)
-      // func decode(s string) {
-      //   dec := base64.NewDecoder(base64.URLEncoding, bytes.NewBufferString(s))
-      //   n, err := io.Copy(os.Stdout, dec)
-      //   fmt.Printf("\n%d %v\n", n, err)
-      // }
-      return string(body)
-      
-      // return fmt.Sprintf("%v\n\n\n%v", string(body), err)
+      return string(body), nil
     }
   }
-  return ""
+  return "", nil // TODO: is this the right thing to do when not found? Possibly should look at body field?
 }
 
 

@@ -163,3 +163,9 @@ Or you can delete the entire index:
 curl -XDELETE localhost:9200/mail
 ```
 
+# Unit tests
+To run tests:
+
+```bash
+go test ./gmailservice
+```
