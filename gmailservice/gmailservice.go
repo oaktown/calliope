@@ -72,10 +72,37 @@ func Download(g *GmailService, messages chan<- []byte) {
     return;
 }
 
+type GmailDoc struct {
+  source []byte
+}
 
 
 
+func (doc *GmailDoc) JsonData() (map[string]interface{}) {
+  // should memoize
+  data := make(map[string]interface{})
+  log.Printf("doc.source: %v", string(doc.source))
+  if err := json.Unmarshal(doc.source, &data); err != nil {    
+    log.Printf("json.Unmarshal failed, skipping message, err: %v", err)
+    return nil;
+  }
+  return data
+}
 
-
+func (doc *GmailDoc) BodyText() string {
+  data := doc.JsonData()
+  parts := (data["payload"].(map[string]interface{}))["parts"]
+  log.Printf("parts: %v", parts)
+  for _, part := range parts.([]interface{}) {
+    part := part.(map[string]interface{})
+    if part["mimeType"] == "text/plain" {
+      return part["body"].(map[string]interface{})["data"].(string)
+    }
+  }
+  return ""
+  // part["mimeType"] == "text/plain"
+  // part["body"]["data"] // decode this
+  // return "something else"
+}
 
 
