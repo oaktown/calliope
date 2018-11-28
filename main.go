@@ -10,11 +10,11 @@ import (
 )
 
 func reader(s store.Storable, messageChannel <-chan []byte, wg *sync.WaitGroup) {
-  defer wg.Done()  // WaitGroup done when this routines exits
+	defer wg.Done() // WaitGroup done when this routines exits
 
-  for byt := range messageChannel { // reads from channel until it's closed
-    s.Save(byt)
-  }
+	for byt := range messageChannel { // reads from channel until it's closed
+		s.Save(byt)
+	}
 }
 
 func main() {
