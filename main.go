@@ -9,11 +9,11 @@ import (
 	"sync"
 )
 
-func reader(s store.Storable, messageChannel <-chan []byte, wg *sync.WaitGroup) {
+func reader(s store.Storable, messageChannel <-chan gmailservice.Message, wg *sync.WaitGroup) {
 	defer wg.Done() // WaitGroup done when this routines exits
 
-	for byt := range messageChannel { // reads from channel until it's closed
-		s.Save(byt)
+	for message := range messageChannel { // reads from channel until it's closed
+		s.Save(message)
 	}
 }
 
@@ -37,7 +37,7 @@ func main() {
 	var wg sync.WaitGroup
 
 	const BufferSize = 10
-	messages := make(chan []byte, BufferSize)
+	messages := make(chan gmailservice.Message, BufferSize)
 
 	wg.Add(1)
 	go reader(s, messages, &wg)

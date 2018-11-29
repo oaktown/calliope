@@ -42,7 +42,7 @@ func New(ctx context.Context, client *http.Client) (*GmailService, error) {
 // TODO: 1. Feature: Channel is sent Messages (e.g. w/ decoded body)
 // TODO: 2. Refactor: Remove the use of a channel – this function should return []Message
 // TODO (cont'd) and lastDate, pageToken, and batchSize should be parameters
-func Download(g *GmailService, messages chan<- []byte) {
+func Download(g *GmailService, messages chan<- Message) {
   lastDate := "2018/01/01"
   var pageToken = ""
 
@@ -71,14 +71,15 @@ func Download(g *GmailService, messages chan<- []byte) {
     log.Printf("Processing %v messages...\n", len(r.Messages))
 
     for _, m := range r.Messages[:6] {
-      msg, err := g.svc.Users.Messages.Get("me", m.Id).Do()
+      gmailMsg, err := g.svc.Users.Messages.Get("me", m.Id).Do()
       if err != nil {
         log.Printf("Unable to retrieve message %v: %v", m.Id, err)
         continue
       }
-      fmt.Printf("Sending Message ID: %v\n", m.Id)
-			byt, _ := json.MarshalIndent(msg, "", "\t")
-			messages <- byt
+			fmt.Printf("Sending Message ID: %v\n", m.Id)
+			message, err := GmailToMessage(*gmailMsg)
+			// byt, _ := json.MarshalIndent(message, "", "\t")
+			messages <- message
     }
     close(messages)
     return;
