@@ -19,6 +19,7 @@ type Message struct {
 	From string
 	Subject string
 	Body string // the thing we're decoding
+	Url string
 	Source gmail.Message
 }
 
@@ -118,7 +119,8 @@ func GmailToMessage(gmail gmail.Message) (Message, error) {
 		Cc: "",
 		From: "",
 		Subject: "",
-  	Body: body,
+		Body: body,
+		Url: fmt.Sprintf("https://mail.google.com/mail/#inbox/%v", gmail.ThreadId),
 		Source: gmail,
 	}	
 	return message, nil
