@@ -98,6 +98,21 @@ called `calliope` in the same directory and then run it:
 go build -i -v
 ./calliope
 ```
+or you can use `go run`:
+
+```bash
+go run main.go
+```
+
+Note: One of the fields is an url to open the thread in Gmail (not the specific email, just the thread that it's in). 
+By default, the url is `https://mail.google.com/mail/#inbox/<thread id>`, but if you are logged into more than one
+account, you can modify using the `GMAIL_USER_STRING` env variable. For example:
+
+```bash
+GMAIL_USER_STRING="u/2/" go run main.go
+```
+
+will link to the 3rd open account.
 
 Initial output:
 ```
@@ -155,7 +170,7 @@ Sending Message ID: 1674c3c1f389215b
 ### Deleting index
 You can use `curl` to delete an email from the index using its id:
 ```bash
-curl -XDELETE localhost:9200/mail/document/16752895eba45df6
+curl -XDELETE localhost:9200/mail/document/<id>
 ```
 
 Or you can delete the entire index:
@@ -168,4 +183,11 @@ To run tests:
 
 ```bash
 go test ./gmailservice
+```
+
+Note: If you find a problematic email and want to download it locally e.g. to add as a test fixture, 
+you can get it using curl, too:
+
+```bash
+curl localhost:9200/mail/document/<id> > fixture.json
 ```
