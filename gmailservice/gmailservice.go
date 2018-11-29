@@ -9,7 +9,6 @@ import (
   "net/http"
   "google.golang.org/api/gmail/v1"
 	"encoding/base64"
-	"strconv"
 )
 
 type Message struct {
@@ -20,26 +19,7 @@ type Message struct {
 	From string
 	Subject string
 	Body string // the thing we're decoding
-	Source RawGmailMessage
-}
-
-type RawGmailMessage struct {
-  HistoryId string
-  Id string
-  InternalDate string
-  LabelIds []string
-  Payload RawGmailMessagePayload
-}
-
-type RawGmailMessagePayload struct {
-  Parts []RawGmailMessagePayloadPart
-}
-
-type RawGmailMessagePayloadPart struct {
-  Body struct {
-    Data string
-  }
-  MimeType string
+	Source gmail.Message
 }
 
 // TODO: Remove this type
@@ -104,8 +84,8 @@ func Download(g *GmailService, messages chan<- []byte) {
     return;
 }
 
-func JsonToGmail(jsonByteArray []byte) (RawGmailMessage, error) {
-  var data RawGmailMessage
+func JsonToGmail(jsonByteArray []byte) (gmail.Message, error) {
+  var data gmail.Message
   if err := json.Unmarshal(jsonByteArray, &data); err != nil {
     log.Printf("json.Unmarshal failed, skipping message, err: %v", err)
     return data, err
@@ -113,15 +93,13 @@ func JsonToGmail(jsonByteArray []byte) (RawGmailMessage, error) {
   return data, nil
 }
 
-// TODO: Take a raw gmail and return body text?
 // TODO: BodyText could be in the body field instead of in the payload. We
 // should probably add logic to handle that case, or at least log or something. 
-func BodyText(msg RawGmailMessage) (string) {
+func BodyText(msg gmail.Message) (string) {
   parts := msg.Payload.Parts
   for _, part := range parts {
     if part.MimeType == "text/plain" {
       encodedBody := part.Body.Data
-      // log.Printf("body: %v", encodedBody)
       body, _ := base64.URLEncoding.DecodeString(encodedBody)
       return string(body)
     }
@@ -129,9 +107,8 @@ func BodyText(msg RawGmailMessage) (string) {
   return ""
 }
 
-func GmailToMessage(gmail RawGmailMessage) (Message, error) {
-	internalDate, _ := strconv.ParseInt(gmail.InternalDate, 10, 64)
-	date := time.Unix(internalDate / 1000, 0)
+func GmailToMessage(gmail gmail.Message) (Message, error) {
+	date := time.Unix(gmail.InternalDate / 1000, 0)
 	body := BodyText(gmail)
 	message := Message {
 		Id: gmail.Id,

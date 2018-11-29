@@ -51,4 +51,3 @@ func TestGmailToMessage(t *testing.T) {
 		t.Errorf("Body is incorrect. Should have an ultrasaurus. Instead got:\n\n%v\n\n", body)
 	}
 }
-
