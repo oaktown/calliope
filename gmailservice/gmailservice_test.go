@@ -22,22 +22,33 @@ func getEmailJson() []byte {
 	return json
 }
 
-func TestBodyText(t *testing.T) {
-	doc := GmailDoc{source: getEmailJson()}
+func TestJsonToGmail (t *testing.T) {
+	json := getEmailJson()
+	gmail, _ := JsonToGmail(json)
+	expected := "16753a2ae7f95997"
+	if gmail.Id != expected {
+		t.Errorf("Expected %v but got: %v", expected, gmail.Id)
+	}
+}
 
-	if body := doc.BodyText(); !strings.Contains(body, "ultrasaurus") {
+func TestBodyText(t *testing.T) {
+	json := getEmailJson()
+	gmail, _ := JsonToGmail(json)
+
+	if body := BodyText(gmail); !strings.Contains(body, "ultrasaurus") {
 		t.Errorf("Body was not correctly decoded. Should have an ultrasaurus. Instead got:\n\n%v\n\n", body)
 	}
 }
 
 func TestGmailToMessage(t *testing.T) {
-	doc := GmailDoc{source: getEmailJson()}
-  rawGmail := doc.JsonData()
-	msg, err := doc.GmailToMessage(rawGmail)
+	json := getEmailJson()
+	rawGmail, _ := JsonToGmail(json)
+	msg, err := GmailToMessage(rawGmail)
 	if err != nil {
 		t.Errorf("Unexpected error calling JsonForElasticsearch: %v", err)
 	}
-	if body := jsonStruct.Body; !strings.Contains(body, "ultrasaurus") {
+	if body := msg.Body; !strings.Contains(body, "ultrasaurus") {
 		t.Errorf("Body is incorrect. Should have an ultrasaurus. Instead got:\n\n%v\n\n", body)
 	}
 }
+

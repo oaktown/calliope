@@ -43,11 +43,6 @@ type RawGmailMessagePayloadPart struct {
 }
 
 // TODO: Remove this type
-type GmailDoc struct {
-  source []byte
-}
-
-// TODO: Remove this type
 type GmailService struct {
   svc         *gmail.Service
 }
@@ -103,19 +98,15 @@ func Download(g *GmailService, messages chan<- []byte) {
       }
       fmt.Printf("Sending Message ID: %v\n", m.Id)
 			byt, _ := json.MarshalIndent(msg, "", "\t")
-			// TODO: Use a JsonForElasticsearch instead of bytestream
-			// something like:
-			// doc := GmailDoc{source: byt}
-			// messages <- doc.JsonForElasticsearch()
 			messages <- byt
     }
     close(messages)
     return;
 }
 
-func (doc *GmailDoc) JsonData() (RawGmailMessage, error) {
+func JsonToGmail(jsonByteArray []byte) (RawGmailMessage, error) {
   var data RawGmailMessage
-  if err := json.Unmarshal(doc.source, &data); err != nil {    
+  if err := json.Unmarshal(jsonByteArray, &data); err != nil {
     log.Printf("json.Unmarshal failed, skipping message, err: %v", err)
     return data, err
   }
@@ -125,12 +116,8 @@ func (doc *GmailDoc) JsonData() (RawGmailMessage, error) {
 // TODO: Take a raw gmail and return body text?
 // TODO: BodyText could be in the body field instead of in the payload. We
 // should probably add logic to handle that case, or at least log or something. 
-func (doc *GmailDoc) BodyText() (string) {
-  data, err := doc.JsonData()
-  if err != nil {
-    return ""
-  }
-  parts := data.Payload.Parts
+func BodyText(msg RawGmailMessage) (string) {
+  parts := msg.Payload.Parts
   for _, part := range parts {
     if part.MimeType == "text/plain" {
       encodedBody := part.Body.Data
@@ -145,7 +132,7 @@ func (doc *GmailDoc) BodyText() (string) {
 func GmailToMessage(gmail RawGmailMessage) (Message, error) {
 	internalDate, _ := strconv.ParseInt(gmail.InternalDate, 10, 64)
 	date := time.Unix(internalDate / 1000, 0)
-	doc := GmailDoc{source: gmail}
+	body := BodyText(gmail)
 	message := Message {
 		Id: gmail.Id,
 		Date: date,
@@ -153,7 +140,7 @@ func GmailToMessage(gmail RawGmailMessage) (Message, error) {
 		Cc: "",
 		From: "",
 		Subject: "",
-  	Body: doc.BodyText(),
+  	Body: body,
 		Source: gmail,
 	}	
 	return message, nil
