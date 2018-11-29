@@ -106,13 +106,13 @@ go run main.go
 
 Note: One of the fields is an url to open the thread in Gmail (not the specific email, just the thread that it's in). 
 By default, the url is `https://mail.google.com/mail/#inbox/<thread id>`, but if you are logged into more than one
-account, you can modify using the `GMAIL_USER_STRING` env variable. For example:
+account, you set the base inbox url using the `CALLIOPE_INBOX_URL` env variable. For example:
 
 ```bash
-GMAIL_USER_STRING="u/2/" go run main.go
+CALLIOPE_INBOX_URL="http://mail.google.com/mail/u/2/#inbox" go run main.go
 ```
 
-will link to the 3rd open account.
+will link to the 3rd logged in account.
 
 Initial output:
 ```

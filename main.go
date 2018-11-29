@@ -6,6 +6,7 @@ import (
 	"github.com/oaktown/calliope/store"
 	"golang.org/x/net/context"
 	"log"
+	"os"
 	"sync"
 )
 
@@ -24,7 +25,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not get auth client, %v", err)
 	}
-	gsvc, err := gmailservice.New(ctx, client)
+	gsvc, err := gmailservice.New(client)
 	if err != nil {
 		log.Fatalf("could not create gmailservice, %v", err)
 	}
@@ -37,12 +38,27 @@ func main() {
 	var wg sync.WaitGroup
 
 	const BufferSize = 10
-	messages := make(chan gmailservice.Message, BufferSize)
+	messageChannel := make(chan gmailservice.Message, BufferSize)
 
 	wg.Add(1)
-	go reader(s, messages, &wg)
+	go reader(s, messageChannel, &wg)
 
-	gmailservice.Download(gsvc, messages)
+	var inboxUrl string
+	if os.Getenv("CALLIOPE_INBOX_URL") == "" {
+		inboxUrl = "https://mail.google.com/mail/#inbox"
+	} else {
+		inboxUrl = os.Getenv("CALLIOPE_INBOX_URL")
+	}
+	messages, err := gmailservice.Download(gsvc, "2018/01/01", 6, "", inboxUrl)
+	if err != nil {
+		log.Fatal("Unable to download messageChannel. Error: ", err)
+	}
+
+	for _, message := range messages {
+		messageChannel <- message
+	}
+
+	close(messageChannel)
 
 	wg.Wait()
 }
