@@ -9,6 +9,7 @@ import (
   "net/http"
   "google.golang.org/api/gmail/v1"
 	"encoding/base64"
+	"os"
 )
 
 type Message struct {
@@ -130,9 +131,12 @@ func ExtractHeader(gmail gmail.Message, field string) (string) {
 func GmailToMessage(gmail gmail.Message) (Message, error) {
 	date := time.Unix(gmail.InternalDate / 1000, 0)
 	body := BodyText(gmail)
+	// TODO: If we do this at all, we should probably have the value passed in
+	// instead of reading from env var in this package
+	gmailUserStr := os.Getenv("GMAIL_USER_STRING")
 	message := Message {
 		Id: gmail.Id,
-		Url: fmt.Sprintf("https://mail.google.com/mail/u/2/#inbox/%v", gmail.ThreadId),
+		Url: fmt.Sprintf("https://mail.google.com/mail/%v#inbox/%v", gmailUserStr, gmail.ThreadId),
 		Date: date,
 		To: ExtractHeader(gmail, "To"),
 		Cc: ExtractHeader(gmail, "Cc"),
