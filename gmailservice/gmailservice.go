@@ -13,13 +13,13 @@ import (
 
 type Message struct {
 	Id string
+	Url string
 	Date time.Time
 	To string
 	Cc string
 	From string
 	Subject string
 	Body string // the thing we're decoding
-	Url string
 	Source gmail.Message
 }
 
@@ -95,18 +95,36 @@ func JsonToGmail(jsonByteArray []byte) (gmail.Message, error) {
   return data, nil
 }
 
-// TODO: BodyText could be in the body field instead of in the payload. We
-// should probably add logic to handle that case, or at least log or something. 
+// TODO: We might want to see if there are other places the body can be located.
 func BodyText(msg gmail.Message) (string) {
-  parts := msg.Payload.Parts
-  for _, part := range parts {
-    if part.MimeType == "text/plain" {
-      encodedBody := part.Body.Data
-      body, _ := base64.URLEncoding.DecodeString(encodedBody)
-      return string(body)
-    }
+	parts := msg.Payload.Parts
+	if msg.Payload.Body.Data != "" {
+		body, _ := base64.URLEncoding.DecodeString(msg.Payload.Body.Data)
+		return string(body)
+	} else {
+		for _, part := range parts {
+			if part.MimeType == "text/plain" {
+				encodedBody := part.Body.Data
+				body, _ := base64.URLEncoding.DecodeString(encodedBody)
+				return string(body)
+			}
+		}
 	}
   return ""
+}
+
+func ExtractHeader(gmail gmail.Message, field string) (string) {
+	// TODO: For now, we just grab the first one, but really we should probably
+	// figure out which one is the signficant one, or if they should be merged, etc.
+	// This probably doesn't apply to all headers, but some might repeat (or maybe
+	// that's only in original, and Gmail makes some decision about which one should
+	// win)
+	for _, header := range gmail.Payload.Headers {
+		if header.Name == field {
+			return header.Value
+		}
+	}
+	return ""
 }
 
 func GmailToMessage(gmail gmail.Message) (Message, error) {
@@ -114,13 +132,13 @@ func GmailToMessage(gmail gmail.Message) (Message, error) {
 	body := BodyText(gmail)
 	message := Message {
 		Id: gmail.Id,
+		Url: fmt.Sprintf("https://mail.google.com/mail/u/2/#inbox/%v", gmail.ThreadId),
 		Date: date,
-		To: "",
-		Cc: "",
-		From: "",
-		Subject: "",
+		To: ExtractHeader(gmail, "To"),
+		Cc: ExtractHeader(gmail, "Cc"),
+		From: ExtractHeader(gmail, "From"),
+		Subject: ExtractHeader(gmail, "Subject"),
 		Body: body,
-		Url: fmt.Sprintf("https://mail.google.com/mail/#inbox/%v", gmail.ThreadId),
 		Source: gmail,
 	}	
 	return message, nil
