@@ -27,3 +27,7 @@ oauth_token.json
 
 # Elasticsearch data
 data
+
+# IDE/editor files
+.idea
+

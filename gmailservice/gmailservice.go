@@ -1,81 +1,134 @@
 package gmailservice
 
 import (
-  "context"
+  "encoding/base64"
   "fmt"
   "log"
-  "encoding/json"
   "net/http"
+  "time"
+
   "google.golang.org/api/gmail/v1"
-  // "github.com/kr/pretty"
 )
 
-
-// GmailService keeps state we need
-type GmailService struct {
-  svc         *gmail.Service
+type Message struct {
+  Id      string
+  Url     string
+  Date    time.Time
+  To      string
+  Cc      string
+  From    string
+  Subject string
+  Body    string // the thing we're decoding
+  Source  gmail.Message
 }
 
-
 // New returns GmailService initialized with given client
-func New(ctx context.Context, client *http.Client) (*GmailService, error) {
-  g := new(GmailService)
+func New(client *http.Client) (*gmail.Service, error) {
   svc, err := gmail.New(client)
   if err != nil {
     log.Printf("could not create gmail client, %v", err)
     return nil, err
   }
-  g.svc = svc;
-  return g, nil
+  return svc, nil
 }
 
-// Download doesn't do anything yet
-func Download(g *GmailService, messages chan<- []byte) {
-  lastDate := "2018/01/01"
-  var pageToken = ""
+func Download(gmailService *gmail.Service, lastDate string, limit int, pageToken string, inboxUrl string) ([]Message, error) {
 
-    var req *gmail.UsersMessagesListCall
+  var messages []Message
 
-    if lastDate == "" {
-      log.Println("Retrieving all messages.")
-      req = g.svc.Users.Messages.List("me")
+  indexOfMessages, err := getIndexOfMessages(lastDate, gmailService, pageToken)
 
-    } else {
-      log.Println("Retrieving messages starting on", lastDate)
-      req = g.svc.Users.Messages.List("me").Q("after: " + lastDate)
-    }
+  if err != nil {
+    log.Printf("Unable to retrieve messages: %v", err)
+    return messages, err
+  }
 
-    if pageToken != "" {
-      req.PageToken(pageToken)
-    }
-    r, err := req.Do()
+  log.Printf("Processing %v messages...\n", len(indexOfMessages.Messages))
 
+  messages = downloadFullMessages(indexOfMessages, gmailService, limit, inboxUrl)
+
+  return messages, nil
+}
+
+func getIndexOfMessages(lastDate string, svc *gmail.Service, pageToken string) (*gmail.ListMessagesResponse, error) {
+  var req *gmail.UsersMessagesListCall
+
+  if lastDate == "" {
+    log.Println("Retrieving all messages.")
+    req = svc.Users.Messages.List("me")
+
+  } else {
+    log.Println("Retrieving messages starting on", lastDate)
+    req = svc.Users.Messages.List("me").Q("after: " + lastDate)
+  }
+  if pageToken != "" {
+    req.PageToken(pageToken)
+  }
+  r, err := req.Do()
+  return r, err
+}
+
+func downloadFullMessages(index *gmail.ListMessagesResponse, svc *gmail.Service, limit int, inboxUrl string) []Message {
+  var fullMessages []Message
+  for _, m := range index.Messages[:limit] {
+    gmailMsg, err := svc.Users.Messages.Get("me", m.Id).Do()
     if err != nil {
-      log.Printf("Unable to retrieve messages: %v", err)
-      return
-      //continue
+      log.Printf("Unable to retrieve message %v: %v", m.Id, err)
+      continue
     }
-
-    log.Printf("Processing %v messages...\n", len(r.Messages))
-
-    for _, m := range r.Messages[:6] {
-      msg, err := g.svc.Users.Messages.Get("me", m.Id).Do()
-      if err != nil {
-        log.Printf("Unable to retrieve message %v: %v", m.Id, err)
-        continue
-      }
-      fmt.Printf("Sending Message ID: %v\n", m.Id)
-      byt, _ := json.MarshalIndent(msg, "", "\t")
-      messages <- byt
-    }
-    close(messages)
-    return;
+    fmt.Printf("Sending Message ID: %v\n", m.Id)
+    message, err := GmailToMessage(*gmailMsg, inboxUrl)
+    fullMessages = append(fullMessages, message)
+  }
+  return fullMessages
 }
 
+func BodyText(msg gmail.Message) string {
+  // TODO: We might want to see if there are other places the body can be located.
+  parts := msg.Payload.Parts
+  if msg.Payload.Body.Data != "" {
+    body, _ := base64.URLEncoding.DecodeString(msg.Payload.Body.Data)
+    return string(body)
+  } else {
+    for _, part := range parts {
+      if part.MimeType == "text/plain" {
+        encodedBody := part.Body.Data
+        body, _ := base64.URLEncoding.DecodeString(encodedBody)
+        return string(body)
+      }
+    }
+  }
+  return ""
+}
 
+func ExtractHeader(gmail gmail.Message, field string) string {
+  // TODO: For now, we just grab the first one, but really we should probably
+  // figure out which one is the significant one, or if they should be merged, etc.
+  // This probably doesn't apply to all headers, but some might repeat (or maybe
+  // that's only in original, and Gmail makes some decision about which one should
+  // win)
+  for _, header := range gmail.Payload.Headers {
+    if header.Name == field {
+      return header.Value
+    }
+  }
+  return ""
+}
 
-
-
-
-
-
+func GmailToMessage(gmail gmail.Message, inboxUrl string) (Message, error) {
+  // TODO: decode all of the fields, not just plain-text body
+  date := time.Unix(gmail.InternalDate/1000, 0)
+  body := BodyText(gmail)
+  message := Message{
+    Id:      gmail.Id,
+    Url:     fmt.Sprint(inboxUrl, gmail.ThreadId),
+    Date:    date,
+    To:      ExtractHeader(gmail, "To"),
+    Cc:      ExtractHeader(gmail, "Cc"),
+    From:    ExtractHeader(gmail, "From"),
+    Subject: ExtractHeader(gmail, "Subject"),
+    Body:    body,
+    Source:  gmail,
+  }
+  return message, nil
+}

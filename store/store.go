@@ -4,9 +4,13 @@ import (
   "encoding/json"
   "log"
   "github.com/olivere/elastic"
-  "golang.org/x/net/context"
+	"golang.org/x/net/context"
+	"github.com/oaktown/calliope/gmailservice"
 )
 
+type Storable interface {
+  Save(gmailservice.Message) error
+}
 
 // Service struct to keep state we need
 type Service struct {
@@ -16,7 +20,7 @@ type Service struct {
 
 const IndexName = "mail"
 
-// New returns query.Service initialized with elastic client
+// New returns Elastic initialized with elastic client
 func New(ctx context.Context) (*Service, error) {
 
   client, err := elastic.NewClient();
@@ -45,30 +49,25 @@ func New(ctx context.Context) (*Service, error) {
   return s, nil
 }
 
-// Save in ElasticSearch
-func Save(s *Service, byt []byte) (error) {
-  var data map[string]interface{}
+func (s *Service) Save(data gmailservice.Message) error {
+  // var data map[string]interface{}
 
-  if err := json.Unmarshal(byt, &data); err != nil {
-    log.Printf("json.Unmarshal failed, skipping meesage, err: ", err)
-    return err;
-  }
-  log.Println("saving Message ID: ", data["id"])
-  id := data["id"].(string)
-
+  // if err := json.Unmarshal(byt, &data); err != nil {
+  //   log.Printf("json.Unmarshal failed, skipping meesage, err: ", err)
+  //   return err;
+  // }
+  log.Println("saving Message ID: ", data.Id)
+	json, err := json.MarshalIndent(data, "", "\t")
+	
 	record, err := s.client.Index().
 		Index(IndexName).
-    Id(id).
+    Id(data.Id).
     Type("document").
-    BodyJson(string(byt)).
+    BodyJson(string(json)).
     Do(s.ctx);
 
   if err != nil {
-    if record != nil {
-      log.Printf("Failed to index data id %s in index %s, err: %v", record.Id, record.Index, err)
-    } else {
-      log.Printf("Failed to index. err: %v", err)
-    }
+		log.Printf("Failed to index data id %s in index %s, err: %v", data.Id, IndexName, err)
     return err;
   }
 	log.Printf("Indexed data id %s to index %s, type %s\n", record.Id, record.Index, record.Type)
