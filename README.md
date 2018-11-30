@@ -13,8 +13,8 @@ brew install go
 brew install dep # Dependency management
 ```
 
-Go requires your project directory to be a subdirectory of `$GOPATH/src`.
-Example using `direnv` for user `me` on a Mac:
+Go requires your project directory to be a subdirectory of `$GOPATH/src`. Go expects all
+of your go projects to be under this path. Additionally, unlike npm store
 
 
 ```bash

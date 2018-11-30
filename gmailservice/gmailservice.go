@@ -36,41 +36,42 @@ func Download(gmailService *gmail.Service, lastDate string, limit int, pageToken
 
   var messages []Message
 
-  indexOfMessages, err := getIndexOfMessages(lastDate, gmailService, pageToken)
+  listMessagesResponse, err := getIndexOfMessages(lastDate, gmailService, pageToken)
 
   if err != nil {
     log.Printf("Unable to retrieve messages: %v", err)
     return messages, err
   }
 
-  log.Printf("Processing %v messages...\n", len(indexOfMessages.Messages))
+  log.Printf("Processing %v messages...\n", len(listMessagesResponse.Messages))
 
-  messages = downloadFullMessages(indexOfMessages, gmailService, limit, inboxUrl)
+  messages = downloadFullMessages(listMessagesResponse.Messages, gmailService, limit, inboxUrl)
 
   return messages, nil
 }
 
 func getIndexOfMessages(lastDate string, svc *gmail.Service, pageToken string) (*gmail.ListMessagesResponse, error) {
-  var req *gmail.UsersMessagesListCall
-
+  var request *gmail.UsersMessagesListCall
+  // TODO: iterate until last page
   if lastDate == "" {
     log.Println("Retrieving all messages.")
-    req = svc.Users.Messages.List("me")
+    request = svc.Users.Messages.List("me")
 
   } else {
     log.Println("Retrieving messages starting on", lastDate)
-    req = svc.Users.Messages.List("me").Q("after: " + lastDate)
+    request = svc.Users.Messages.List("me").Q("after: " + lastDate)
   }
   if pageToken != "" {
-    req.PageToken(pageToken)
+    request.PageToken(pageToken)
   }
-  r, err := req.Do()
-  return r, err
+  response, err := request.Do()
+
+  return response, err
 }
 
-func downloadFullMessages(index *gmail.ListMessagesResponse, svc *gmail.Service, limit int, inboxUrl string) []Message {
+func downloadFullMessages(gmailMessages []*gmail.Message, svc *gmail.Service, limit int, inboxUrl string) []Message {
   var fullMessages []Message
-  for _, m := range index.Messages[:limit] {
+  for _, m := range gmailMessages[:limit] {
     gmailMsg, err := svc.Users.Messages.Get("me", m.Id).Do()
     if err != nil {
       log.Printf("Unable to retrieve message %v: %v", m.Id, err)
