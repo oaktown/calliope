@@ -191,3 +191,6 @@ you can get it using curl, too:
 ```bash
 curl localhost:9200/mail/document/<id> > fixture.json
 ```
+
+Removing stuff you don't need for the test would be nice, too, as it would make it easier to find 
+relevant data in the fixture.
