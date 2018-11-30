@@ -2,10 +2,10 @@ package store
 
 import (
   "encoding/json"
-  "log"
+  "github.com/oaktown/calliope/gmailservice"
   "github.com/olivere/elastic"
-	"golang.org/x/net/context"
-	"github.com/oaktown/calliope/gmailservice"
+  "golang.org/x/net/context"
+  "log"
 )
 
 type Storable interface {
@@ -14,8 +14,8 @@ type Storable interface {
 
 // Service struct to keep state we need
 type Service struct {
-  client  *elastic.Client
-  ctx     context.Context
+  client *elastic.Client
+  ctx    context.Context
 }
 
 const IndexName = "mail"
@@ -45,7 +45,6 @@ func New(ctx context.Context) (*Service, error) {
   s := new(Service)
   s.client = client;
   s.ctx = ctx;
-
   return s, nil
 }
 
@@ -57,20 +56,19 @@ func (s *Service) Save(data gmailservice.Message) error {
   //   return err;
   // }
   log.Println("saving Message ID: ", data.Id)
-	json, err := json.MarshalIndent(data, "", "\t")
-	
-	record, err := s.client.Index().
-		Index(IndexName).
+  json, err := json.MarshalIndent(data, "", "\t")
+
+  record, err := s.client.Index().
+    Index(IndexName).
     Id(data.Id).
     Type("document").
     BodyJson(string(json)).
     Do(s.ctx);
-
   if err != nil {
-		log.Printf("Failed to index data id %s in index %s, err: %v", data.Id, IndexName, err)
+    log.Printf("Failed to index data id %s in index %s, err: %v", data.Id, IndexName, err)
     return err;
   }
-	log.Printf("Indexed data id %s to index %s, type %s\n", record.Id, record.Index, record.Type)
+  log.Printf("Indexed data id %s to index %s, type %s\n", record.Id, record.Index, record.Type)
 
   return nil;
 }
