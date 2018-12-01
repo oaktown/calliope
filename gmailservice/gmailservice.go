@@ -4,7 +4,6 @@ import (
   "encoding/base64"
   "fmt"
   "log"
-  "net/http"
   "time"
 
   "google.golang.org/api/gmail/v1"
@@ -20,16 +19,6 @@ type Message struct {
   Subject string
   Body    string // the thing we're decoding
   Source  gmail.Message
-}
-
-// New returns GmailService initialized with given client
-func New(client *http.Client) (*gmail.Service, error) {
-  svc, err := gmail.New(client)
-  if err != nil {
-    log.Printf("could not create gmail client, %v", err)
-    return nil, err
-  }
-  return svc, nil
 }
 
 func Download(gmailService *gmail.Service, lastDate string, limit int, pageToken string, inboxUrl string) ([]Message, error) {
