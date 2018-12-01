@@ -1,15 +1,15 @@
 package cmd
 
 import (
-  "fmt"
+  "log"
+  "sync"
+
   "github.com/oaktown/calliope/auth"
   "github.com/oaktown/calliope/gmailservice"
   "github.com/oaktown/calliope/store"
   "github.com/spf13/cobra"
   "golang.org/x/net/context"
   "google.golang.org/api/gmail/v1"
-  "log"
-  "sync"
 )
 
 var limit int
@@ -28,7 +28,6 @@ var downloadCmd = &cobra.Command{
   Short: "downloads emails",
   Long:  `Downloads emails into Elasticsearch.`,
   Run: func(cmd *cobra.Command, args []string) {
-    //fmt.Println("Hello!")
     download()
   },
 }
@@ -42,7 +41,6 @@ func reader(s store.Storable, messageChannel <-chan gmailservice.Message, wg *sy
 }
 
 func download() {
-
   ctx := context.Background()
   client, err := auth.Client(ctx)
   if err != nil {
@@ -58,16 +56,15 @@ func download() {
     log.Fatalf("could not create store, %v", err)
   }
 
-  downloadGmailToES(s, err, gsvc)
+  downloadGmailToES(s, gsvc)
 }
 
-func downloadGmailToES(s *store.Service, err error, gsvc *gmail.Service) {
+func downloadGmailToES(s *store.Service, gsvc *gmail.Service) {
   var wg sync.WaitGroup
   const BufferSize = 10
   messageChannel := make(chan gmailservice.Message, BufferSize)
   wg.Add(1)
   go reader(s, messageChannel, &wg)
-  fmt.Print("url: ", inboxUrl)
   messages, err := gmailservice.Download(gsvc, lastDate, limit, pageToken, inboxUrl)
   if err != nil {
     log.Fatal("Unable to download messageChannel. Error: ", err)
