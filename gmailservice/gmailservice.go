@@ -42,10 +42,14 @@ func Download(gmailService *gmail.Service, lastDate string, limit int, pageToken
     log.Printf("Unable to retrieve messages: %v", err)
     return messages, err
   }
+  messagesToDownload := listMessagesResponse.Messages
+  if limit < len(messagesToDownload) {
+    messagesToDownload = listMessagesResponse.Messages[:limit]
+  }
 
-  log.Printf("Processing %v messages...\n", len(listMessagesResponse.Messages))
+  log.Printf("Processing %v messages...\n", len(messagesToDownload))
 
-  messages = downloadFullMessages(listMessagesResponse.Messages, gmailService, limit, inboxUrl)
+  messages = downloadFullMessages(messagesToDownload, gmailService, inboxUrl)
 
   return messages, nil
 }
@@ -69,9 +73,9 @@ func getIndexOfMessages(lastDate string, svc *gmail.Service, pageToken string) (
   return response, err
 }
 
-func downloadFullMessages(gmailMessages []*gmail.Message, svc *gmail.Service, limit int, inboxUrl string) []Message {
+func downloadFullMessages(gmailMessages []*gmail.Message, svc *gmail.Service, inboxUrl string) []Message {
   var fullMessages []Message
-  for _, m := range gmailMessages[:limit] {
+  for _, m := range gmailMessages {
     gmailMsg, err := svc.Users.Messages.Get("me", m.Id).Do()
     if err != nil {
       log.Printf("Unable to retrieve message %v: %v", m.Id, err)
