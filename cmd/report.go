@@ -1,16 +1,17 @@
 package cmd
 
 import (
-  "fmt"
-
   "github.com/spf13/cobra"
+  "github.com/oaktown/calliope/misc"
+  "github.com/oaktown/calliope/report"
 )
 
 var label string
 
 func init() {
   rootCmd.AddCommand(reportCmd)
-  reportCmd.Flags().StringVarP(&label, "label", "l", "", "Report for emails with this label which are also starred (required).")
+  reportCmd.Flags().StringVarP(&label, "label", "l", "",
+    "Report for emails with this label which are also starred (required).")
   reportCmd.MarkFlagRequired("label")
 }
 
@@ -22,10 +23,6 @@ specified label which are also starred (because the
 threaded UI in Gmail only allows applying labels to 
 threads).`,
   Run: func(cmd *cobra.Command, args []string) {
-    report()
+    report.Run(misc.GetGmailClient(), label)
   },
-}
-
-func report() {
-  fmt.Println("TBD")
 }
