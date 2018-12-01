@@ -2,6 +2,7 @@ package cmd
 
 import (
   "log"
+  "strconv"
   "sync"
 
   "github.com/oaktown/calliope/gmailservice"
@@ -10,12 +11,11 @@ import (
   "github.com/spf13/cobra"
 )
 
-var limit int
-var lastDate, pageToken, inboxUrl string
+var limit, lastDate, pageToken, inboxUrl string
 
 func init() {
   rootCmd.AddCommand(downloadCmd)
-  downloadCmd.Flags().IntVarP(&limit, "limit", "l", 10, "limit number of emails to download")
+  downloadCmd.Flags().StringVarP(&limit, "limit", "l", "", "limit number of emails to download (defaults to no limit)")
   downloadCmd.Flags().StringVarP(&lastDate, "after-date", "d", "2018/01/01", "Emails after this date. In yyyy/mm/dd format.")
   downloadCmd.Flags().StringVarP(&pageToken, "page-token", "p", "", "Page token for downloading emails (probably going to be removed).")
   downloadCmd.Flags().StringVarP(&inboxUrl, "inbox-url", "u", "https://mail.google.com/mail/#inbox/", "Url for gmail (useful if you are logged into multiple accounts).")
@@ -39,6 +39,7 @@ func reader(s store.Storable, messageChannel <-chan gmailservice.Message, wg *sy
 }
 
 func download() {
+  max, _ := strconv.ParseInt(limit, 10, 64)
   gsvc := misc.GetGmailClient()
   s := misc.GetStoreClient()
   var wg sync.WaitGroup
@@ -46,7 +47,7 @@ func download() {
   messageChannel := make(chan gmailservice.Message, BufferSize)
   wg.Add(1)
   go reader(s, messageChannel, &wg)
-  messages, err := gmailservice.Download(gsvc, lastDate, limit, pageToken, inboxUrl)
+  messages, err := gmailservice.Download(gsvc, lastDate, max, pageToken, inboxUrl)
   if err != nil {
     log.Fatal("Unable to download messageChannel. Error: ", err)
   }

@@ -21,41 +21,34 @@ type Message struct {
   Source  gmail.Message
 }
 
-func Download(gmailService *gmail.Service, lastDate string, limit int, pageToken string, inboxUrl string) ([]Message, error) {
-
+func Download(gmailService *gmail.Service, lastDate string, limit int64, pageToken string, inboxUrl string) ([]Message, error) {
   var messages []Message
 
-  listMessagesResponse, err := getIndexOfMessages(lastDate, gmailService, pageToken)
-
+  searchResults, err := SearchMessages(gmailService, lastDate, limit, pageToken)
   if err != nil {
     log.Printf("Unable to retrieve messages: %v", err)
     return messages, err
   }
-  messagesToDownload := listMessagesResponse.Messages
-  if limit < len(messagesToDownload) {
-    messagesToDownload = listMessagesResponse.Messages[:limit]
-  }
 
+  messagesToDownload := searchResults.Messages
   log.Printf("Processing %v messages...\n", len(messagesToDownload))
 
-  messages = downloadFullMessages(messagesToDownload, gmailService, inboxUrl)
-
+  messages = DownloadFullMessages(messagesToDownload, gmailService, inboxUrl)
   return messages, nil
 }
 
-func getIndexOfMessages(lastDate string, svc *gmail.Service, pageToken string) (*gmail.ListMessagesResponse, error) {
+func SearchMessages(svc *gmail.Service, after string, limit int64, pageToken string) (*gmail.ListMessagesResponse, error) {
   var request *gmail.UsersMessagesListCall
   // TODO: iterate until last page
-  if lastDate == "" {
-    log.Println("Retrieving all messages.")
-    request = svc.Users.Messages.List("me")
-
-  } else {
-    log.Println("Retrieving messages starting on", lastDate)
-    request = svc.Users.Messages.List("me").Q("after: " + lastDate)
+  request = svc.Users.Messages.List("me")
+  if limit > 0 {
+    request = request.MaxResults(limit)
+  }
+  if after != "" {
+    request = request.Q("after: " + after)
   }
   if pageToken != "" {
-    request.PageToken(pageToken)
+    request = request.PageToken(pageToken)
   }
   response, err := request.Do()
 
