@@ -29,7 +29,6 @@ func Download(gmailService *gmail.Service, lastDate string, limit int64, pageTok
     log.Printf("Unable to retrieve messages: %v", err)
     return messages, err
   }
-
   messages = DownloadFullMessages(messagesToDownload, gmailService, inboxUrl)
   return messages, nil
 }
@@ -46,7 +45,9 @@ func SearchMessages(svc *gmail.Service, after string, limit int64, pageToken str
     request = request.PageToken(pageToken)
   }
   response, err := request.Do()
-
+  nextPage := response.NextPageToken
+  estimate := response.ResultSizeEstimate
+  log.Printf("NextPageToken: %v\nEstimate: %v\n\n", nextPage, estimate)
   return response.Messages, err
 }
 
@@ -54,9 +55,7 @@ func DownloadFullMessages(gmailMessages []*gmail.Message, svc *gmail.Service, in
   var fullMessages []Message
   for _, m := range gmailMessages {
     message, err := DownloadFullMessage(svc, m.Id, inboxUrl)
-    if err != nil {
-      log.Printf("Could not download message with id %v. Error:\n\n%v\n\n", id, err)
-    } else {
+    if err == nil {
       fullMessages = append(fullMessages, message)
     }
   }
@@ -65,11 +64,11 @@ func DownloadFullMessages(gmailMessages []*gmail.Message, svc *gmail.Service, in
 
 func DownloadFullMessage(svc *gmail.Service, id string, inboxUrl string) (Message, error) {
   gmailMsg, err := svc.Users.Messages.Get("me", id).Do()
+  log.Println("Fetching message id:", id)
   if err != nil {
     log.Printf("Unable to retrieve message %v: %v", id, err)
     return Message{}, err
   }
-  fmt.Printf("Sending Message ID: %v\n", id)
   message, err := GmailToMessage(*gmailMsg, inboxUrl)
   return message, nil
 }
