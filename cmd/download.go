@@ -4,12 +4,10 @@ import (
   "log"
   "sync"
 
-  "github.com/oaktown/calliope/auth"
   "github.com/oaktown/calliope/gmailservice"
+  "github.com/oaktown/calliope/misc"
   "github.com/oaktown/calliope/store"
   "github.com/spf13/cobra"
-  "golang.org/x/net/context"
-  "google.golang.org/api/gmail/v1"
 )
 
 var limit int
@@ -41,25 +39,8 @@ func reader(s store.Storable, messageChannel <-chan gmailservice.Message, wg *sy
 }
 
 func download() {
-  ctx := context.Background()
-  client, err := auth.Client(ctx)
-  if err != nil {
-    log.Fatalf("could not get auth client, %v", err)
-  }
-  gsvc, err := gmailservice.New(client)
-  if err != nil {
-    log.Fatalf("could not create gmailservice, %v", err)
-  }
-
-  s, err := store.New(ctx)
-  if err != nil {
-    log.Fatalf("could not create store, %v", err)
-  }
-
-  downloadGmailToES(s, gsvc)
-}
-
-func downloadGmailToES(s *store.Service, gsvc *gmail.Service) {
+  gsvc := misc.GetGmailClient()
+  s := misc.GetStoreClient()
   var wg sync.WaitGroup
   const BufferSize = 10
   messageChannel := make(chan gmailservice.Message, BufferSize)
