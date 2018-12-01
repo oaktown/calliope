@@ -21,6 +21,7 @@ type Message struct {
   Source  gmail.Message
 }
 
+// Download everything that is requested in calliope generic Message format
 func Download(gmailService *gmail.Service, lastDate string, limit int64, pageToken string, inboxUrl string) ([]Message, error) {
   var messages []Message
 
@@ -29,11 +30,17 @@ func Download(gmailService *gmail.Service, lastDate string, limit int64, pageTok
     log.Printf("Unable to retrieve messages: %v", err)
     return messages, err
   }
+  log.Println("Messages found: ", len(messagesToDownload))
   messages = DownloadFullMessages(messagesToDownload, gmailService, inboxUrl)
   return messages, nil
 }
 
+// SearchMessages gets list of message and thread IDs (not full message content)
 func SearchMessages(svc *gmail.Service, after string, limit int64, pageToken string) ([]*gmail.Message, error) {
+  var messagesToDownload []*gmail.Message
+  var e error
+  // Seems like max batchsize is 500 per page.
+  // Also seems like limit is more like batch size.
   request := svc.Users.Messages.List("me")
   if limit > 0 {
     request = request.MaxResults(limit)
@@ -41,14 +48,23 @@ func SearchMessages(svc *gmail.Service, after string, limit int64, pageToken str
   if after != "" {
     request = request.Q("after: " + after)
   }
-  if pageToken != "" {
-    request = request.PageToken(pageToken)
+  for {
+    if pageToken != "" {
+      request = request.PageToken(pageToken)
+    }
+    response, err := request.Do()
+    if err != nil {
+      e = err
+      break
+    }
+    pageToken = response.NextPageToken
+    messagesToDownload = append(messagesToDownload, response.Messages...)
+    log.Printf("NextPageToken: %v\nEstimate: %v\nMessages found: %v\n\n", pageToken, response.ResultSizeEstimate, len(messagesToDownload))
+    if pageToken == "" || int64(len(messagesToDownload)) >= limit {
+      break
+    }
   }
-  response, err := request.Do()
-  nextPage := response.NextPageToken
-  estimate := response.ResultSizeEstimate
-  log.Printf("NextPageToken: %v\nEstimate: %v\n\n", nextPage, estimate)
-  return response.Messages, err
+  return messagesToDownload, e
 }
 
 func DownloadFullMessages(gmailMessages []*gmail.Message, svc *gmail.Service, inboxUrl string) []Message {

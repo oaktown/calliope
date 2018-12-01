@@ -16,7 +16,7 @@ calliope
 
 # ignore secrets
 client_secret.json
-oauth_token.json
+*oauth_token.json
 .envrc
 
 # ignore Mac files

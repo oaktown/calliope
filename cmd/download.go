@@ -15,7 +15,7 @@ var limit, lastDate, pageToken, inboxUrl string
 
 func init() {
   rootCmd.AddCommand(downloadCmd)
-  downloadCmd.Flags().StringVarP(&limit, "limit", "l", "10", "limit number of emails to download")
+  downloadCmd.Flags().StringVarP(&limit, "limit", "l", "10", "limit number of emails to download (if > 500, rounds up to next multiple of 500).")
   downloadCmd.Flags().StringVarP(&lastDate, "after-date", "d", "", "Emails after this date. In yyyy/mm/dd format.")
   downloadCmd.Flags().StringVarP(&pageToken, "page-token", "p", "", "Page token for downloading emails (probably going to be removed).")
   downloadCmd.Flags().StringVarP(&inboxUrl, "inbox-url", "u", "https://mail.google.com/mail/#inbox/", "Url for gmail (useful if you are logged into multiple accounts).")
