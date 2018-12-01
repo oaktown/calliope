@@ -24,23 +24,18 @@ type Message struct {
 func Download(gmailService *gmail.Service, lastDate string, limit int64, pageToken string, inboxUrl string) ([]Message, error) {
   var messages []Message
 
-  searchResults, err := SearchMessages(gmailService, lastDate, limit, pageToken)
+  messagesToDownload, err := SearchMessages(gmailService, lastDate, limit, pageToken)
   if err != nil {
     log.Printf("Unable to retrieve messages: %v", err)
     return messages, err
   }
 
-  messagesToDownload := searchResults.Messages
-  log.Printf("Processing %v messages...\n", len(messagesToDownload))
-
   messages = DownloadFullMessages(messagesToDownload, gmailService, inboxUrl)
   return messages, nil
 }
 
-func SearchMessages(svc *gmail.Service, after string, limit int64, pageToken string) (*gmail.ListMessagesResponse, error) {
-  var request *gmail.UsersMessagesListCall
-  // TODO: iterate until last page
-  request = svc.Users.Messages.List("me")
+func SearchMessages(svc *gmail.Service, after string, limit int64, pageToken string) ([]*gmail.Message, error) {
+  request := svc.Users.Messages.List("me")
   if limit > 0 {
     request = request.MaxResults(limit)
   }
@@ -52,7 +47,7 @@ func SearchMessages(svc *gmail.Service, after string, limit int64, pageToken str
   }
   response, err := request.Do()
 
-  return response, err
+  return response.Messages, err
 }
 
 func downloadFullMessages(gmailMessages []*gmail.Message, svc *gmail.Service, inboxUrl string) []Message {
