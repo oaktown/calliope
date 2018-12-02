@@ -104,12 +104,21 @@ or you can use `go run`:
 go run main.go
 ```
 
-Note: One of the fields is an url to open the thread in Gmail (not the specific email, just the thread that it's in). 
+This command will display help.
+
+Note: One of the options is an url to open the thread in Gmail (not the specific email, just the thread that it's in). 
 By default, the url is `https://mail.google.com/mail/#inbox/<thread id>`, but if you are logged into more than one
-account, you set the base inbox url using the `CALLIOPE_INBOX_URL` env variable. For example:
+account, can pass in a modified url. For example:
 
 ```bash
-CALLIOPE_INBOX_URL="http://mail.google.com/mail/u/2/#inbox" go run main.go
+go build
+./calliope download -l 1000 -d "2018/01/01" -u "https://mail.google.com/mail/#inbox/u/2/"
+```
+
+or
+
+```bash
+go run main.go download -l 1000 -d "2018/01/01" -u "https://mail.google.com/mail/#inbox/u/2/"
 ```
 
 will link to the 3rd logged in account.
