@@ -4,7 +4,6 @@ import (
   "encoding/base64"
   "fmt"
   "log"
-  "sync"
   "time"
 
   "google.golang.org/api/gmail/v1"
@@ -22,92 +21,129 @@ type Message struct {
   Source  gmail.Message
 }
 
+type Downloader struct {
+  SearchChan   chan *gmail.Message
+  MessageChan  chan *Message
+  M2           chan *Message
+  WorkersQueue chan bool
+  MaxWorkers   int
+  Svc          *gmail.Service
+  Options      Options
+  DoList func(*gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error)
+  DoGet  func(request *gmail.UsersMessagesGetCall) (*gmail.Message, error)
+}
+
+type Options struct {
+  LastDate string
+  Limit    int64
+  InboxUrl string
+}
+
+func New(svc *gmail.Service, options Options, maxWorkers int) Downloader {
+  search := make(chan *gmail.Message)
+  message := make(chan *Message)
+  workers := make(chan bool, maxWorkers)
+  return Downloader{
+    SearchChan:   search,
+    MessageChan:  message,
+    WorkersQueue: workers,
+    MaxWorkers:   maxWorkers,
+    Svc:          svc,
+    Options:      options,
+    DoList: DoList,
+    DoGet:  DoGet,
+  }
+}
+
+func (d Downloader) NoNewWorkers() {
+  for i := 0; i < d.MaxWorkers; i++ {
+    d.WorkersQueue <- true
+  }
+}
+
 // Download everything that is requested in calliope generic Message format
-func Download(gmailService *gmail.Service, lastDate string, limit int64, pageToken string, inboxUrl string) ([]*Message, error) {
-  bufferSize := 10
-  // Could use channels of structs instead
-  searchResultsChannel := make(chan *gmail.Message, bufferSize)
-  searchErrorsChannel := make(chan error)
+func Download(d Downloader) ([]*Message, error) {
+  go SearchMessages(d)
+  go DownloadFullMessages(d)
 
-  messagesChannel := make(chan *Message, bufferSize)
-  messageErrorsChannel := make(chan error)
-
-  go SearchMessages(gmailService, lastDate, limit, pageToken, searchResultsChannel, searchErrorsChannel)
-  go DownloadFullMessages(gmailService, inboxUrl, searchResultsChannel, messagesChannel, messageErrorsChannel)
   var messages []*Message
-  for message := range messagesChannel {
+  for message := range d.MessageChan {
     messages = append(messages, message)
   }
   return messages, nil
 }
 
 // SearchMessages gets list of message and thread IDs (not full message content)
-func SearchMessages(svc *gmail.Service, after string, limit int64, pageToken string, searchResultsChannel chan<- *gmail.Message, errsChan chan<- error) {
+func SearchMessages(d Downloader) {
   var totalMessages int64
   totalMessages = 0
   // Seems like MaxResults over 500 results in pages of 500; possibly subject to change?
-  request := svc.Users.Messages.List("me")
-  if limit > 0 {
-    request = request.MaxResults(limit)
+  request := d.Svc.Users.Messages.List("me")
+  if d.Options.Limit > 0 {
+    request = request.MaxResults(d.Options.Limit)
   }
-  if after != "" {
-    request = request.Q("after: " + after)
+  if d.Options.LastDate != "" {
+    request = request.Q("after: " + d.Options.LastDate)
   }
+  pageToken := ""
   for {
     if pageToken != "" {
       request = request.PageToken(pageToken)
     }
-    response, err := request.Do()
+    response, err := d.DoList(request)
+
     if err != nil {
       // Could be transient error (e.g. throttle), but for now we're just exiting
       log.Print("search error: ", err)
-      errsChan <- err
       return
     }
     pageToken = response.NextPageToken
     for _, result := range response.Messages {
-      searchResultsChannel <- result
+      d.SearchChan <- result
     }
     totalMessages += int64(len(response.Messages))
     log.Printf("NextPageToken: %v\nEstimate: %v\nMessages found this page: %v\n\n", pageToken, response.ResultSizeEstimate, len(response.Messages))
-    if pageToken == "" || totalMessages >= limit {
+    if pageToken == "" || totalMessages >= d.Options.Limit {
       break
     }
   }
-  close(searchResultsChannel)
+  close(d.SearchChan)
 }
 
-func DownloadFullMessages(svc *gmail.Service, inboxUrl string, searchResultsChannel <-chan *gmail.Message, messagesChannel chan<- *Message, messageErrorsChannel chan<- error){
-  defer close(messagesChannel)
-  defer close(messageErrorsChannel)
-  wg := sync.WaitGroup{}
-  c := 0
-  for searchResult := range searchResultsChannel {
-    wg.Add(1)
-    go DownloadFullMessage(svc, searchResult.Id, inboxUrl, messagesChannel, messageErrorsChannel, &wg)
-    c = c+1
-    if (c == 200) { wg.Wait(); c = 0 }
+func DoList(request *gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error) {
+  response, err := request.Do()
+  return response, err
+}
+
+func DownloadFullMessages(d Downloader) {
+  defer close(d.MessageChan)
+  for searchResult := range d.SearchChan {
+    d.WorkersQueue <- true
+    go DownloadFullMessage(d, searchResult.Id)
   }
-  wg.Wait()
+  d.NoNewWorkers()
 }
 
-func DownloadFullMessage(svc *gmail.Service, id string, inboxUrl string, msgCh chan<- *Message, errsCh chan<- error, wg *sync.WaitGroup) {
-  defer wg.Done()
-
-  gmailMsg, err := svc.Users.Messages.Get("me", id).Do()
+func DownloadFullMessage(d Downloader, id string) {
+  defer func() { <-d.WorkersQueue }()
+  request := d.Svc.Users.Messages.Get("me", id)
+  gmailMsg, err := d.DoGet(request)
   log.Println("Fetching message id:", id)
   if err != nil {
     log.Printf("Unable to retrieve message %v: %v", id, err)
-    errsCh <- err
     return
   }
-  message, _ := GmailToMessage(*gmailMsg, inboxUrl)
+  message, _ := GmailToMessage(*gmailMsg, d.Options.InboxUrl)
   if err != nil {
     log.Printf("Unable to decode message %v: %v", id, err)
-    errsCh <- err
     return
   }
-  msgCh <- &message
+  d.MessageChan <- &message
+}
+
+func DoGet(request *gmail.UsersMessagesGetCall) (*gmail.Message, error) {
+  gmailMsg, err := request.Do()
+  return gmailMsg, err
 }
 
 func BodyText(msg gmail.Message) string {

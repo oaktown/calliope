@@ -47,7 +47,13 @@ func download() {
   storageChannel := make(chan *gmailservice.Message, BufferSize)
   wg.Add(1)
   go reader(s, storageChannel, &wg)
-  messages, err := gmailservice.Download(gsvc, lastDate, max, pageToken, inboxUrl)
+  options := gmailservice.Options{
+    LastDate: lastDate,
+    Limit: max,
+    InboxUrl: inboxUrl,
+  }
+  d := gmailservice.New(gsvc, options, 200)
+  messages, err := gmailservice.Download(d)
 
   log.Print("Done downloading: ", len(messages))
   if err != nil {
