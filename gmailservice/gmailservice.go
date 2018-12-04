@@ -62,15 +62,9 @@ func (d Downloader) NoNewWorkers() {
 }
 
 // Download everything that is requested in calliope generic Message format
-func Download(d Downloader) ([]*Message, error) {
+func Download(d Downloader) {
   go SearchMessages(d)
   go DownloadFullMessages(d)
-
-  var messages []*Message
-  for message := range d.MessageChan {
-    messages = append(messages, message)
-  }
-  return messages, nil
 }
 
 // SearchMessages gets list of message and thread IDs (not full message content)

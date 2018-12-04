@@ -32,10 +32,12 @@ var downloadCmd = &cobra.Command{
 
 func reader(s store.Storable, messageChannel <-chan *gmailservice.Message, wg *sync.WaitGroup) {
   defer wg.Done() // WaitGroup done when this routines exits
-
+  i := 0
   for message := range messageChannel { // reads from channel until it's closed
     s.Save(*message)
+    i++
   }
+  log.Printf("Saved %v messages", i)
 }
 
 func download() {
@@ -43,25 +45,14 @@ func download() {
   gsvc := misc.GetGmailClient()
   s := misc.GetStoreClient()
   var wg sync.WaitGroup
-  const BufferSize = 10
-  storageChannel := make(chan *gmailservice.Message, BufferSize)
   wg.Add(1)
-  go reader(s, storageChannel, &wg)
   options := gmailservice.Options{
     LastDate: lastDate,
     Limit: max,
     InboxUrl: inboxUrl,
   }
   d := gmailservice.New(gsvc, options, 200)
-  messages, err := gmailservice.Download(d)
-
-  log.Print("Done downloading: ", len(messages))
-  if err != nil {
-   log.Fatal("Unable to download message. Error: ", err)
-  }
-  for _, message := range messages {
-   storageChannel <- message
-  }
-  close(storageChannel)
+  go reader(s, d.MessageChan, &wg)
+  gmailservice.Download(d)
   wg.Wait()
 }
