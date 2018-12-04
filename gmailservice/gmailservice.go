@@ -34,7 +34,7 @@ type Downloader struct {
 }
 
 type Options struct {
-  LastDate string
+  Query    string
   Limit    int64
   InboxUrl string
 }
@@ -76,8 +76,9 @@ func SearchMessages(d Downloader) {
   if d.Options.Limit > 0 {
     request = request.MaxResults(d.Options.Limit)
   }
-  if d.Options.LastDate != "" {
-    request = request.Q("after: " + d.Options.LastDate)
+  if d.Options.Query != "" {
+    log.Println("adding: ", d.Options.Query)
+    request = request.Q(d.Options.Query)
   }
   pageToken := ""
   for {
@@ -132,6 +133,7 @@ func DownloadFullMessage(d Downloader, id string) {
     log.Printf("Unable to decode message %v: %v", id, err)
     return
   }
+  log.Println("Subject: ", message.Subject)
   d.MessageChan <- &message
 }
 
