@@ -2,13 +2,13 @@ package gmailservice
 
 import (
   "encoding/json"
-  "google.golang.org/api/gmail/v1"
-  "testing"
   "io/ioutil"
-  // "encoding/json"
   "log"
   "os"
   "strings"
+  "testing"
+
+  "google.golang.org/api/gmail/v1"
 )
 
 var expectedBody = "How are you doing? Some special characters: <>?$/:-)"
@@ -32,22 +32,6 @@ func JsonToGmail(jsonByteArray []byte) (gmail.Message, error) {
     return data, err
   }
   return data, nil
-}
-
-func TestDownload(t *testing.T) {
-  t.Skip()
-}
-
-func TestGetIndexOfMessages(t *testing.T) {
-  t.Skip()
-}
-
-func TestDownloadFullMessages(t *testing.T) {
-  t.Skip()
-}
-
-func TestExtractHeader(t *testing.T) {
-  t.Skip()
 }
 
 func TestBodyText(t *testing.T) {
