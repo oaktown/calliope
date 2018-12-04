@@ -1,14 +1,12 @@
 package cmd
 
 import (
-  "log"
-  "strconv"
-  "sync"
-
   "github.com/oaktown/calliope/gmailservice"
   "github.com/oaktown/calliope/misc"
   "github.com/oaktown/calliope/store"
   "github.com/spf13/cobra"
+  "log"
+  "strconv"
 )
 
 var limit, lastDate, pageToken, inboxUrl string
@@ -30,29 +28,38 @@ var downloadCmd = &cobra.Command{
   },
 }
 
-func reader(s store.Storable, messageChannel <-chan *gmailservice.Message, wg *sync.WaitGroup) {
-  defer wg.Done() // WaitGroup done when this routines exits
-  i := 0
+func reader(s store.Storable, messageChannel <-chan *gmailservice.Message, workers chan bool) {
   for message := range messageChannel { // reads from channel until it's closed
-    s.Save(*message)
-    i++
+    workers <- true
+    go func() {
+      defer func() { <- workers }()
+      err := s.Save(*message)
+      if err != nil {
+        log.Println("Error saving: ", err)
+      } else {
+        log.Println("Saved:\n  ", message.Subject)
+      }
+    }()
   }
-  log.Printf("Saved %v messages", i)
 }
 
 func download() {
   max, _ := strconv.ParseInt(limit, 10, 64)
+  maxWorkers := 10
+  workers := make(chan bool, maxWorkers)
+
   gsvc := misc.GetGmailClient()
   s := misc.GetStoreClient()
-  var wg sync.WaitGroup
-  wg.Add(1)
   options := gmailservice.Options{
     LastDate: lastDate,
     Limit: max,
     InboxUrl: inboxUrl,
   }
   d := gmailservice.New(gsvc, options, 200)
-  go reader(s, d.MessageChan, &wg)
   gmailservice.Download(d)
-  wg.Wait()
+  reader(s, d.MessageChan, workers)
+
+  for i := 0; i < maxWorkers; i++ {
+    workers <- true
+  }
 }
