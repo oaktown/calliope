@@ -34,7 +34,7 @@ func reader(s store.Storable, messageChannel <-chan *gmailservice.Message, worke
     workers <- true
     go func() {
       defer func() { <-workers }()
-      err := s.Save(*message)
+      err := s.SaveMessage(*message)
       if err != nil {
         log.Println("Error saving: ", err)
       } else {
@@ -57,7 +57,11 @@ func download() {
     InboxUrl: inboxUrl,
   }
   d := gmailservice.New(gsvc, options, 200)
-  gmailservice.Download(d)
+  labels := gmailservice.Download(d)
+  if err := s.SaveLabels(labels); err != nil {
+    log.Println("Error saving labels")
+  }
+
   reader(s, d.MessageChan, workers)
 
   for i := 0; i < maxWorkers; i++ {

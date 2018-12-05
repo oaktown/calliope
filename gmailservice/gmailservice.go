@@ -33,6 +33,7 @@ type Downloader struct {
   Options      Options
   DoList       func(*gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error)
   DoGet        func(request *gmail.UsersMessagesGetCall) (*gmail.Message, error)
+  DoListLabels func(call *gmail.UsersLabelsListCall) ()
 }
 
 type Options struct {
@@ -64,9 +65,31 @@ func (d Downloader) NoNewWorkers() {
 }
 
 // Download everything that is requested in calliope generic Message format
-func Download(d Downloader) {
+func Download(d Downloader) []*Label{
+  labels := DownloadLabels(d)
   go SearchMessages(d)
   go DownloadFullMessages(d)
+  return labels
+}
+
+type Label struct {
+  Id   string
+  Name string
+}
+
+func DownloadLabels(d Downloader) []*Label {
+  request := d.Svc.Users.Labels.List("me")
+  response, _ := request.Do()
+  var labels []*Label
+  for _, l := range response.Labels {
+    label := &Label{
+      Id:   l.Id,
+      Name: l.Name,
+    }
+    fmt.Printf("Id: %v\nName: %v\n\n", label.Id, label.Name)
+    labels = append(labels, label)
+  }
+  return labels
 }
 
 // SearchMessages gets list of message and thread IDs (not full message content)
