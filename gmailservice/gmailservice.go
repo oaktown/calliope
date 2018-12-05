@@ -19,6 +19,7 @@ type Message struct {
   Subject  string
   Body     string
   ThreadId string
+  LabelIds []string
   Snippet  string
   Source   gmail.Message
 }
@@ -65,7 +66,7 @@ func (d Downloader) NoNewWorkers() {
 }
 
 // Download everything that is requested in calliope generic Message format
-func Download(d Downloader) []*Label{
+func Download(d Downloader) []*Label {
   labels := DownloadLabels(d)
   go SearchMessages(d)
   go DownloadFullMessages(d)
@@ -213,6 +214,7 @@ func GmailToMessage(gmail gmail.Message, inboxUrl string) (Message, error) {
     Subject:  ExtractHeader(gmail, "Subject"),
     Body:     body,
     ThreadId: gmail.ThreadId,
+    LabelIds: gmail.LabelIds,
     Snippet:  gmail.Snippet,
     Source:   gmail,
   }
