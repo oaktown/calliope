@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Email report {{.Query}} </title>
+</head>
+<body>
+
+<h1 id="ToC">Table of Contents</h1>
+
+<table>
+    <thead>
+    <tr>
+        <th>Date</th>
+        <th>From</th>
+        <th>Gmail</th>
+        <th>Jump</th>
+        <th>Subject</th>
+    </tr>
+    </thead>
+    <tbody>
+    {{range .Messages}}
+    <tr>
+        <td>{{.Date}}</td>
+        <td>{{.From}}</td>
+        <td><a href="{{.ThreadId | gmailUrl}}" target="_blank">Gmail</a></td>
+        <td><a href="{{.Id | jump}}">jump</a></td>
+        <td>{{.Subject}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+</table>
+
+<h2>Email messages</h2>
+
+<ul>
+    {{range .Messages}}
+    <li>
+        <table id="{{.Id}}">
+            <tr>
+                <th scope="row">Date</th>
+                <td>{{.Date}}</td>
+            </tr>
+            <tr>
+                <th scope="row">From</th>
+                <td>{{.From}}</td>
+            </tr>
+            <tr>
+                <th scope="row">To</th>
+                <td>{{.To}}</td>
+            </tr>
+            <tr>
+                <th scope="row">Cc</th>
+                <td>{{.Cc}}</td>
+            </tr>
+            <tr>
+                <th scope="row">Subject</th>
+                <td>{{.Subject}}</td>
+            </tr>
+        </table>
+        <div>
+            {{.Body}}
+        </div>
+        <ul>
+            <li>
+                <a href="#ToC">ToC</a>
+            </li>
+            <li>
+                <a href="{{.ThreadId | gmailUrl}}" target="_blank">Gmail</a>
+            </li>
+        </ul>
+    </li>
+    {{end}}
+</ul>
+</body>
+</html>

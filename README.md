@@ -112,16 +112,16 @@ account, can pass in a modified url. For example:
 
 ```bash
 go build
-./calliope download -l 1000 -d "2018/01/01" -u "https://mail.google.com/mail/#inbox/u/2/"
+./calliope download -l 1000 -d "2018/01/01" -u "https://mail.google.com/mail/u/2"
 ```
 
 or
 
 ```bash
-go run main.go download -l 1000 -d "2018/01/01" -u "https://mail.google.com/mail/#inbox/u/2/"
+go run main.go download -l 1000 -d "2018/01/01" -u "https://mail.google.com/mail/u/2/"
 ```
 
-will link to the 3rd logged in account.
+will link to the 3rd logged in account. See also [Debugging](#debugging), below.
 
 Initial output:
 ```
@@ -176,6 +176,18 @@ Sending Message ID: 1674c3c1f389215b
 2018/11/25 11:50:15 Indexed data id 1674c3c1f389215b to index mail, type document
 ```
 
+# Debugging
+
+To debug, install [Delve](https://github.com/derekparker/delve). Follow the installation 
+instructions for your OS, then you can run it like:
+
+```bash
+dlv debug main.go -- download -q "is:starred label:devchix" -l 10 -R
+```
+
+Note: The `--` separates `dlv` commandline args from the commandline args of the program being debugged. 
+
+
 ### Deleting index
 You can use `curl` to delete an email from the index using its id:
 ```bash
@@ -203,3 +215,4 @@ curl localhost:9200/mail/document/<id> > fixture.json
 
 Removing stuff you don't need for the test would be nice, too, as it would make it easier to find 
 relevant data in the fixture.
+
