@@ -10,15 +10,17 @@ import (
 )
 
 type Message struct {
-  Id      string
-  Url     string
-  Date    time.Time
-  To      string
-  Cc      string
-  From    string
-  Subject string
-  Body    string // the thing we're decoding
-  Source  gmail.Message
+  Id       string
+  Url      string
+  Date     time.Time
+  To       string
+  Cc       string
+  From     string
+  Subject  string
+  Body     string
+  ThreadId string
+  Snippet  string
+  Source   gmail.Message
 }
 
 type Downloader struct {
@@ -29,8 +31,8 @@ type Downloader struct {
   MaxWorkers   int
   Svc          *gmail.Service
   Options      Options
-  DoList func(*gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error)
-  DoGet  func(request *gmail.UsersMessagesGetCall) (*gmail.Message, error)
+  DoList       func(*gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error)
+  DoGet        func(request *gmail.UsersMessagesGetCall) (*gmail.Message, error)
 }
 
 type Options struct {
@@ -50,8 +52,8 @@ func New(svc *gmail.Service, options Options, maxWorkers int) Downloader {
     MaxWorkers:   maxWorkers,
     Svc:          svc,
     Options:      options,
-    DoList: DoList,
-    DoGet:  DoGet,
+    DoList:       DoList,
+    DoGet:        DoGet,
   }
 }
 
@@ -179,15 +181,17 @@ func GmailToMessage(gmail gmail.Message, inboxUrl string) (Message, error) {
   date := time.Unix(gmail.InternalDate/1000, 0)
   body := BodyText(gmail)
   message := Message{
-    Id:      gmail.Id,
-    Url:     fmt.Sprint(inboxUrl, gmail.ThreadId),
-    Date:    date,
-    To:      ExtractHeader(gmail, "To"),
-    Cc:      ExtractHeader(gmail, "Cc"),
-    From:    ExtractHeader(gmail, "From"),
-    Subject: ExtractHeader(gmail, "Subject"),
-    Body:    body,
-    Source:  gmail,
+    Id:       gmail.Id,
+    Url:      fmt.Sprintf("%v#inbox/%v", inboxUrl, gmail.ThreadId),
+    Date:     date,
+    To:       ExtractHeader(gmail, "To"),
+    Cc:       ExtractHeader(gmail, "Cc"),
+    From:     ExtractHeader(gmail, "From"),
+    Subject:  ExtractHeader(gmail, "Subject"),
+    Body:     body,
+    ThreadId: gmail.ThreadId,
+    Snippet:  gmail.Snippet,
+    Source:   gmail,
   }
   return message, nil
 }

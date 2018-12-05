@@ -43,8 +43,8 @@ func New(ctx context.Context) (*Service, error) {
   }
 
   s := new(Service)
-  s.client = client;
-  s.ctx = ctx;
+  s.client = client
+  s.ctx = ctx
   return s, nil
 }
 
@@ -63,12 +63,12 @@ func (s *Service) Save(data gmailservice.Message) error {
     Id(data.Id).
     Type("document").
     BodyJson(string(json)).
-    Do(s.ctx);
+    Do(s.ctx)
   if err != nil {
     log.Printf("Failed to index data id %s in index %s, err: %v", data.Id, IndexName, err)
-    return err;
+    return err
   }
   log.Printf("Indexed data id %s to index %s, type %s\n", record.Id, record.Index, record.Type)
 
-  return nil;
+  return nil
 }
