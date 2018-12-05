@@ -2,20 +2,21 @@ package store
 
 import (
   "encoding/json"
+  "errors"
+  "fmt"
   "github.com/oaktown/calliope/gmailservice"
   "github.com/olivere/elastic"
   "golang.org/x/net/context"
   "log"
+  "reflect"
 )
-
-type Storable interface {
-  SaveMessage(gmailservice.Message) error
-}
 
 // Service struct to keep state we need
 type Service struct {
-  client *elastic.Client
-  ctx    context.Context
+  Client      *elastic.Client
+  Ctx         context.Context
+  MailIndex   string
+  LabelsIndex string
 }
 
 const MailIndex = "mail"
@@ -39,10 +40,13 @@ func New(ctx context.Context) (*Service, error) {
     return nil, err
   }
 
-  svc := new(Service)
-  svc.client = client
-  svc.ctx = ctx
-  return svc, nil
+  svc := Service{
+    Client:      client,
+    Ctx:         ctx,
+    MailIndex:   MailIndex,
+    LabelsIndex: LabelsIndex,
+  }
+  return &svc, nil
 }
 
 func createIndex(name string, client *elastic.Client, ctx context.Context) error {
@@ -61,12 +65,12 @@ func createIndex(name string, client *elastic.Client, ctx context.Context) error
 }
 
 func (s *Service) saveDoc(index string, id string, json string) error {
-  record, err := s.client.Index().
+  record, err := s.Client.Index().
     Index(index).
     Id(id).
     Type("document").
     BodyJson(json).
-    Do(s.ctx)
+    Do(s.Ctx)
   if err != nil {
     log.Printf("Failed to index data id %s in index %s, err: %v", id, index, err)
     return err
@@ -76,13 +80,14 @@ func (s *Service) saveDoc(index string, id string, json string) error {
 }
 
 type LabelsDoc struct {
-  Id string
+  Id     string
   Labels []*gmailservice.Label
 }
+
 func (s *Service) SaveLabels(labels []*gmailservice.Label) error {
   doc := LabelsDoc{
-    Id:      "labels",
-    Labels : labels,
+    Id:     "labels",
+    Labels: labels,
   }
   labelsJson, _ := json.MarshalIndent(doc, "", "\t")
 
@@ -91,6 +96,21 @@ func (s *Service) SaveLabels(labels []*gmailservice.Label) error {
   }
 
   return nil
+}
+
+func (s *Service) GetLabels() ([]*gmailservice.Label, error) {
+  var doc LabelsDoc
+  query := elastic.NewTermQuery("Id", "labels")
+  result, _ := s.Client.Search().
+    Index(LabelsIndex).
+    Query(query).
+    Do(s.Ctx)
+  labelsJson := result.Hits.Hits[0].Source
+  if err := json.Unmarshal(*labelsJson, &doc); err != nil {
+    log.Println("Unable to unmarshal labels json. err: ", err)
+    return nil, err
+  }
+  return doc.Labels, nil
 }
 
 func (s *Service) SaveMessage(data gmailservice.Message) error {
@@ -102,3 +122,58 @@ func (s *Service) SaveMessage(data gmailservice.Message) error {
   return nil
 }
 
+func (s *Service) generateMessagesQuery(labelName string, starred bool) (*elastic.BoolQuery, error) {
+  labels, err := s.GetLabels()
+  if err != nil {
+    log.Println("Could not get labels from Elasticsearch")
+    return nil, err
+  }
+  var labelId string
+  for _, label := range labels {
+    if label.Name == labelName {
+      labelId = label.Id
+    }
+  }
+  if labelId == "" {
+    err := fmt.Sprintf("Label %v not found.", labelName)
+    return nil, errors.New(err)
+  } else {
+    log.Println("************* Label Id is: ", labelId)
+  }
+  labelQuery := elastic.NewTermQuery("LabelIds.keyword", labelId)
+
+  query := elastic.NewBoolQuery()
+  query = query.Must(labelQuery) // weirdly before this line was in, when we got source, it included the label query but didn't work
+  if starred {
+    starredQuery := elastic.NewTermQuery("LabelIds.keyword", "STARRED")
+    query = query.Must(starredQuery)
+  }
+  source, _ := query.Source()
+  jsonStr, _ := json.MarshalIndent(source, "", "\t")
+  log.Printf("source: %v\n", string(jsonStr))
+  return query, nil
+}
+
+func (s *Service) GetMessages(label string, starred bool) ([]*gmailservice.Message, error) {
+  query, err := s.generateMessagesQuery(label, starred)
+  if err != nil {
+    log.Println("Query error: ", err)
+    return nil, err
+  }
+  var messages []*gmailservice.Message
+  result, err := s.Client.Search().
+    Index(s.MailIndex).
+    Query(query).
+    Do(s.Ctx)
+  if err != nil {
+    log.Println("Couldn't search. Exiting")
+    return nil, err
+  }
+  var messageForReflect gmailservice.Message
+  for _, m := range result.Each(reflect.TypeOf(messageForReflect)) {
+    message := m.(gmailservice.Message)
+    messages = append(messages, &message)
+  }
+  log.Println("Messages found: ", len(messages))
+  return messages, nil
+}

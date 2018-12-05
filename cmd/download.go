@@ -9,14 +9,13 @@ import (
   "strconv"
 )
 
-var limit, query, pageToken, inboxUrl string
+var limit, query, inboxUrl string
 var runReport bool
 
 func init() {
   rootCmd.AddCommand(downloadCmd)
   downloadCmd.Flags().StringVarP(&limit, "limit", "l", "10", "limit number of emails to download (if > 500, rounds up to next multiple of 500).")
   downloadCmd.Flags().StringVarP(&query, "query", "q", "", "Gmail query. E.g. \"after: 2018/11/01 label:my-label is:starred\" More info: See https://support.google.com/mail/answer/7190.")
-  downloadCmd.Flags().StringVarP(&pageToken, "page-token", "p", "", "Page token for downloading emails (probably going to be removed).")
   downloadCmd.Flags().StringVarP(&inboxUrl, "inbox-url", "u", "https://mail.google.com/mail/", "Url for gmail (useful if you are logged into multiple accounts).")
 }
 
@@ -29,7 +28,7 @@ var downloadCmd = &cobra.Command{
   },
 }
 
-func reader(s store.Storable, messageChannel <-chan *gmailservice.Message, workers chan bool) {
+func reader(s *store.Service, messageChannel <-chan *gmailservice.Message, workers chan bool) {
   for message := range messageChannel { // reads from channel until it's closed
     workers <- true
     go func() {

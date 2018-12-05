@@ -6,13 +6,16 @@ import (
   "github.com/oaktown/calliope/report"
 )
 
-var label string
+var label, esQuery string
+var allMessages bool
 
 func init() {
   rootCmd.AddCommand(reportCmd)
+  //reportCmd.Flags().StringVarP(&esQuery, "query", "q", "", "Elasticsearch query (overrides other flags).")
   reportCmd.Flags().StringVarP(&label, "label", "l", "",
-    "Report for emails with this label which are also starred (required).")
+    "Report for emails with this label (required).")
   reportCmd.MarkFlagRequired("label")
+  reportCmd.Flags().BoolVarP(&allMessages, "all-messages", "A", false, "By default, we only query for starred messages. With this flag, we get all messages for the label whether they are starred or not.")
 }
 
 var reportCmd = &cobra.Command{
@@ -23,6 +26,11 @@ specified label which are also starred (because the
 threaded UI in Gmail only allows applying labels to 
 threads).`,
   Run: func(cmd *cobra.Command, args []string) {
-    report.Run(misc.GetGmailClient(), label)
+    options := report.Options{
+      Label: label,
+      Starred: !allMessages,
+      Query: esQuery,
+    }
+    report.Run(misc.GetStoreClient(), options)
   },
 }
