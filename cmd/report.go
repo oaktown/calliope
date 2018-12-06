@@ -6,16 +6,18 @@ import (
   "github.com/oaktown/calliope/report"
 )
 
-var label, esQuery string
+var label, url string
 var allMessages bool
+var size int
 
 func init() {
   rootCmd.AddCommand(reportCmd)
-  //reportCmd.Flags().StringVarP(&esQuery, "query", "q", "", "Elasticsearch query (overrides other flags).")
   reportCmd.Flags().StringVarP(&label, "label", "l", "",
     "Report for emails with this label (required).")
   reportCmd.MarkFlagRequired("label")
   reportCmd.Flags().BoolVarP(&allMessages, "all-messages", "A", false, "By default, we only query for starred messages. With this flag, we get all messages for the label whether they are starred or not.")
+  reportCmd.Flags().IntVarP(&size, "size", "s", 1000, "The max number of results to return from a search. Defaults to 1000.")
+  downloadCmd.Flags().StringVarP(&url, "url", "U", "https://mail.google.com/mail/", "Url for gmail (useful if you are logged into multiple accounts).")
 }
 
 var reportCmd = &cobra.Command{
@@ -26,7 +28,8 @@ var reportCmd = &cobra.Command{
     options := report.Options{
       Label: label,
       Starred: !allMessages,
-      Query: esQuery,
+      InboxUrl: url,
+      Size: size,
     }
     report.Run(misc.GetStoreClient(), options)
   },

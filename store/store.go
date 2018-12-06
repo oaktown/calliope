@@ -157,7 +157,7 @@ func (s *Service) FindLabelId(labelName string) (string, error) {
   return labelId, nil
 }
 
-func (s *Service) GetMessages(label string, starred bool) ([]*gmailservice.Message, error) {
+func (s *Service) GetMessages(label string, starred bool, size int) ([]*gmailservice.Message, error) {
   query, err := s.GenerateMessagesQuery(label, starred)
   if err != nil {
     log.Println("Query error: ", err)
@@ -167,6 +167,7 @@ func (s *Service) GetMessages(label string, starred bool) ([]*gmailservice.Messa
   result, err := s.Client.Search().
     Index(s.MailIndex).
     Query(query).
+    Size(size).
     Do(s.Ctx)
   if err != nil {
     log.Println("Couldn't search. Exiting")

@@ -12,8 +12,8 @@ import (
 type Options struct {
   Label    string
   Starred  bool
-  Query    string
   InboxUrl string
+  Size     int
 }
 
 type Data struct {
@@ -31,7 +31,7 @@ func Run(s *store.Service, options Options) {
     return fmt.Sprint("#", id)
   }
 
-  messages, err := s.GetMessages(options.Label, options.Starred)
+  messages, err := s.GetMessages(options.Label, options.Starred, options.Size)
   if err != nil {
     log.Println("Exiting due to error")
     return
@@ -52,4 +52,3 @@ func Run(s *store.Service, options Options) {
     log.Println("Error rendering template: ", err)
   }
 }
-
