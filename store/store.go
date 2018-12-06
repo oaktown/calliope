@@ -11,7 +11,6 @@ import (
   "reflect"
 )
 
-// Service struct to keep state we need
 type Service struct {
   Client      *elastic.Client
   Ctx         context.Context
@@ -24,7 +23,6 @@ const LabelsIndex = "labels"
 
 // New returns Elastic initialized with elastic client
 func New(ctx context.Context) (*Service, error) {
-
   client, err := elastic.NewClient()
   if err != nil {
     log.Println("could not create elastic client: ", err)
@@ -122,23 +120,10 @@ func (s *Service) SaveMessage(data gmailservice.Message) error {
   return nil
 }
 
-func (s *Service) generateMessagesQuery(labelName string, starred bool) (*elastic.BoolQuery, error) {
-  labels, err := s.GetLabels()
+func (s *Service) GenerateMessagesQuery(labelName string, starred bool) (*elastic.BoolQuery, error) {
+  labelId, err := s.FindLabelId(labelName)
   if err != nil {
-    log.Println("Could not get labels from Elasticsearch")
     return nil, err
-  }
-  var labelId string
-  for _, label := range labels {
-    if label.Name == labelName {
-      labelId = label.Id
-    }
-  }
-  if labelId == "" {
-    err := fmt.Sprintf("Label %v not found.", labelName)
-    return nil, errors.New(err)
-  } else {
-    log.Println("************* Label Id is: ", labelId)
   }
   labelQuery := elastic.NewTermQuery("LabelIds.keyword", labelId)
 
@@ -154,8 +139,26 @@ func (s *Service) generateMessagesQuery(labelName string, starred bool) (*elasti
   return query, nil
 }
 
+func (s *Service) FindLabelId(labelName string) (string, error) {
+  labels, err := s.GetLabels()
+  if err != nil {
+    return "", errors.New("Could not get labels from Elasticsearch")
+  }
+  var labelId string
+  for _, label := range labels {
+    if label.Name == labelName {
+      labelId = label.Id
+    }
+  }
+  if labelId == "" {
+    err := fmt.Sprintf("Label %v not found.", labelName)
+    return "", errors.New(err)
+  }
+  return labelId, nil
+}
+
 func (s *Service) GetMessages(label string, starred bool) ([]*gmailservice.Message, error) {
-  query, err := s.generateMessagesQuery(label, starred)
+  query, err := s.GenerateMessagesQuery(label, starred)
   if err != nil {
     log.Println("Query error: ", err)
     return nil, err
