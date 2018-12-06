@@ -21,10 +21,7 @@ func init() {
 var reportCmd = &cobra.Command{
   Use:   "report",
   Short: "Creates an HTML report of labeled emails",
-  Long: `Creates an HTML report of emails with the 
-specified label which are also starred (because the 
-threaded UI in Gmail only allows applying labels to 
-threads).`,
+  Long: `Creates an HTML report of emails with the specified label which are also starred (because the threaded UI in Gmail only allows applying labels to threads). Report queries emails saved to Elasticsearch (as opposed to doing a search on Gmail).`,
   Run: func(cmd *cobra.Command, args []string) {
     options := report.Options{
       Label: label,

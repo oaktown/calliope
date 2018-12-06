@@ -22,7 +22,7 @@ func init() {
 var downloadCmd = &cobra.Command{
   Use:   "download",
   Short: "downloads emails",
-  Long:  `Downloads emails into Elasticsearch.`,
+  Long:  `Downloads emails from Gmail into Elasticsearch. Reports can then be run on the emails that have been downloaded.`,
   Run: func(cmd *cobra.Command, args []string) {
     download()
   },
