@@ -1,29 +1,54 @@
 package report
 
 import (
+  "fmt"
+  "github.com/oaktown/calliope/gmailservice"
+  "github.com/oaktown/calliope/store"
   "html/template"
+  "log"
   "os"
-
-  "google.golang.org/api/gmail/v1"
 )
 
-func Run(gmail *gmail.Service, label string) {
-  report := template.Must(template.ParseFiles("report.html"))
-  obj := struct{
-    foo string
-    bar int
-  }{"baz", 1}
-  report.Execute(os.Stdout, obj)
+type Options struct {
+  Label    string
+  Starred  bool
+  InboxUrl string
+  Size     int
 }
 
-//URL:
-//
-//https://mail.google.com/mail/u/1/#search/{{query}}/{{threadid}}
-// As opposed to just linking to the thread, if you click on the back arrow, it'll put you in the search
-// for the label + star. Also, if there is a search term, it will highlight it.
+type Data struct {
+  Label    string
+  Messages []*gmailservice.Message
+}
 
+func Run(s *store.Service, options Options) {
 
+  gmailUrl := func(threadId string) string {
+    return fmt.Sprintf("%v#inbox/%v", options.InboxUrl, threadId)
+  }
 
+  jump := func(id string) string {
+    return fmt.Sprint("#", id)
+  }
 
+  messages, err := s.GetMessages(options.Label, options.Starred, options.Size)
+  if err != nil {
+    log.Println("Exiting due to error")
+    return
+  }
 
-
+  report := template.Must(
+    template.New("report.html").
+      Funcs(template.FuncMap{
+        "gmailUrl": gmailUrl,
+        "jump":     jump,
+      }).
+      ParseFiles("report.html"))
+  data := Data{
+    Label:    options.Label,
+    Messages: messages,
+  }
+  if err := report.Execute(os.Stdout, data); err != nil {
+    log.Println("Error rendering template: ", err)
+  }
+}

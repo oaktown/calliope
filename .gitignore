@@ -28,3 +28,5 @@ data
 # IDE/editor files
 .idea
 
+# Temporary files
+tmp
