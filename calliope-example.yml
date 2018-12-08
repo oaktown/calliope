@@ -1,0 +1,15 @@
+---
+exclude_headers_with_values:
+  From:
+    - noreply
+    - no-reply
+  Sender:
+    - noreply
+    - no-reply
+  List-Unsubscribe:
+  List-ID:
+  X-Feedback-ID:
+  Feedback-ID:
+  X-MailingID:
+  x-blast-id:
+  X-BBounce:

@@ -1,10 +1,12 @@
 package cmd
 
 import (
+  "fmt"
   "github.com/oaktown/calliope/gmailservice"
   "github.com/oaktown/calliope/misc"
   "github.com/oaktown/calliope/store"
   "github.com/spf13/cobra"
+  "github.com/spf13/viper"
   "log"
   "strconv"
 )
@@ -51,16 +53,22 @@ func reader(s *store.Service, messageChannel <-chan *gmailservice.Message, maxWo
 }
 
 func download() {
+  exclude_headers := viper.GetStringMapStringSlice("exclude_headers_with_values")
+  for k, v := range exclude_headers {
+   fmt.Printf("key: %s\n", k)
+   for _, s := range v {
+   fmt.Printf("  %s\n", s)
+   }
+  }
   max, _ := strconv.ParseInt(limit, 10, 64)
-  maxWorkers := 10
-  workers := make(chan bool, maxWorkers)
 
   gsvc := misc.GetGmailClient()
   s := misc.GetStoreClient()
   options := gmailservice.Options{
-    Query:    query,
-    Limit:    max,
-    InboxUrl: inboxUrl,
+    Query:          query,
+    Limit:          max,
+    InboxUrl:       inboxUrl,
+    ExcludeHeaders: exclude_headers,
   }
   d := gmailservice.New(gsvc, options, 200)
   labels := gmailservice.Download(d)

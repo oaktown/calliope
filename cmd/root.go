@@ -58,7 +58,8 @@ func initConfig() {
 
 		// Search config in home directory with name ".calliope" (without extension).
 		viper.AddConfigPath(home)
-		viper.SetConfigName(".calliope")
+		viper.AddConfigPath(".") // working directory
+		viper.SetConfigName("calliope")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

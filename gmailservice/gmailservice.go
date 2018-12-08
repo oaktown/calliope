@@ -4,6 +4,7 @@ import (
   "encoding/base64"
   "fmt"
   "log"
+  "strings"
   "time"
 
   "google.golang.org/api/gmail/v1"
@@ -40,9 +41,10 @@ type Downloader struct {
 }
 
 type Options struct {
-  Query    string
-  Limit    int64
-  InboxUrl string
+  Query          string
+  Limit          int64
+  InboxUrl       string
+  ExcludeHeaders map[string][]string
 }
 
 func New(svc *gmail.Service, options Options, maxWorkers int) Downloader {
@@ -148,6 +150,24 @@ func DownloadFullMessages(d Downloader) {
   d.NoNewWorkers()
 }
 
+func HasMatchingHeader(excludeHeaders map[string][]string, message gmail.Message) (string, string) {
+  // If header matches, returns first matching header; otherwise returns empty strings
+  for header, excludeValues := range excludeHeaders {
+    value := strings.ToLower(ExtractHeader(message, header))
+    if value == "" {
+      continue // No matching header
+    }
+    for _, excludeValue := range excludeValues {
+      excludeValue = strings.ToLower(excludeValue)
+      if strings.Contains(value, excludeValue) {
+        return header, value
+      }
+    }
+  }
+
+  return "", ""
+}
+
 func DownloadFullMessage(d Downloader, id string) {
   defer func() { <-d.WorkersQueue }()
   request := d.Svc.Users.Messages.Get("me", id)
@@ -163,7 +183,14 @@ func DownloadFullMessage(d Downloader, id string) {
     return
   }
   log.Println("Subject: ", message.Subject)
-  d.MessageChan <- &message
+  header, value := HasMatchingHeader(d.Options.ExcludeHeaders, *gmailMsg)
+  if header == "" {
+    d.MessageChan <- &message
+  } else {
+    log.Println("Skipping message: ")
+    log.Println("  Subject: ", message.Subject)
+    log.Printf("  Matching header: %v: %v", header, value)
+  }
 }
 
 func DoGet(request *gmail.UsersMessagesGetCall) (*gmail.Message, error) {
@@ -196,7 +223,7 @@ func ExtractHeader(gmail gmail.Message, field string) string {
   // that's only in original, and Gmail makes some decision about which one should
   // win)
   for _, header := range gmail.Payload.Headers {
-    if header.Name == field {
+    if strings.ToLower(header.Name) == strings.ToLower(field) {
       return header.Value
     }
   }
