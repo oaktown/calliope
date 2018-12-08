@@ -28,7 +28,9 @@ var downloadCmd = &cobra.Command{
   },
 }
 
-func reader(s *store.Service, messageChannel <-chan *gmailservice.Message, workers chan bool) {
+func reader(s *store.Service, messageChannel <-chan *gmailservice.Message, maxWorkers int) {
+  workers := make(chan bool, maxWorkers)
+  var savedMessages int64
   for message := range messageChannel { // reads from channel until it's closed
     workers <- true
     go func() {
@@ -39,8 +41,13 @@ func reader(s *store.Service, messageChannel <-chan *gmailservice.Message, worke
       } else {
         log.Println("Saved:\n  ", message.Subject)
       }
+      savedMessages++
     }()
   }
+  for i := 0; i < maxWorkers; i++ {
+    workers <- true
+  }
+  fmt.Println("Total saved messages: ", savedMessages)
 }
 
 func download() {
@@ -61,9 +68,5 @@ func download() {
     log.Println("Error saving labels")
   }
 
-  reader(s, d.MessageChan, workers)
-
-  for i := 0; i < maxWorkers; i++ {
-    workers <- true
-  }
+  reader(s, d.MessageChan, 10)
 }
