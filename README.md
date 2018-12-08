@@ -14,21 +14,15 @@ brew install dep # Dependency management
 ```
 
 Go requires your project directory to be a subdirectory of `$GOPATH/src`. Go expects all
-of your go projects to be under this path. Additionally, unlike npm store
-
+of your go projects to be under this path. To get the code and put it in the right path, use the `go get` command (instead of `git clone`)
 
 ```bash
-cd ~/
-mkdir go
-cd go
-mkdir src
-cd src
-git clone https://github.com/oaktown/calliope.git
-cd calliope
-echo "export GOPATH=/Users/me/go" > .envrc
-direnv allow
-dep ensure
+go get github.com/oaktown/calliope.git
+cd $GOPATH
+cd src/github.com/oaktown/calliope # Project directory
+dep ensure # Update dependencies
 ```
+The last line shouldn't cause any changes since we're checking all dependencies into `vendor` (because, unlike npm or ruby gems, there is no registry – if owners rename repos, it would cause a problem for anyone using their packages.)
 
 ## Install Elasticsearch using Docker
 
@@ -40,7 +34,8 @@ In the project directory, type:
 docker-compose -f docker-compose.local.yml up # this will run in the foreground
 ```
 
-This will download the docker image (if you don't have it already) and run it on port 9200.
+This will download the docker images (if you don't have them already) and run Elasticsearch on port 9200.
+
 To test on the terminal:
 
 ```bash
@@ -69,17 +64,17 @@ You should get a response like:
 }
 ```
 
-To stop it, type:
-
-```bash
-docker-compose -f docker-compose.local.yml down
-```
-
 If you want data to persist (from [elastic-with-docker repo](https://github.com/olivere/elastic-with-docker)):
 
 > Make sure to create a ./data directory locally and uncomment the volumes section in Docker Compose file(s) if you want your data to be persistent.
 
 Note: `data` has been added to .gitignore
+
+To delete your containers (e.g. if you don't want to save what's in Elasticsearch and haven't put stuff in the data directory), type:
+
+```bash
+docker-compose -f docker-compose.local.yml down
+```
 
 There's a Chrome extension called [ElasticSearch Head](https://chrome.google.com/webstore/detail/elasticsearch-head/ffmkiejjmecolpfloofpjologoblkegm) that you might find useful.
 
@@ -123,7 +118,14 @@ go run main.go download -l 1000 -d "2018/01/01" -u "https://mail.google.com/mail
 
 will link to the 3rd logged in account. See also [Debugging](#debugging), below.
 
-Initial output:
+## Config
+
+In addition to command line options, you can provide a configuration file (currently named calliope.yml, and currently stored in the working directory, although this will change eventually). Currently, it only has one option: `exclude_headers_with_values` which can be used to exclude messages from being saved into Elasticsearch (useful if you want to filter out automated notifications, email lists, etc.). There is a sample file `calliope-example.yml` that shows a configuration to exclude common mailing lists.
+
+## Oauth
+
+The first time you run the application, you will be prompted to give permission (via Oauth) like so:
+
 ```
 ====> Get ready to authenticate....
 
@@ -146,35 +148,6 @@ Saving credential file to: oauth_token.json
 
 Note: Next time, it will use the saved token instead of prompting you.
 
-```
-got client
-2018/11/25 11:50:13 Retrieving messages starting on 2018/01/01
-2018/11/25 11:50:14 Processing 100 messages...
-```
-
-It's actually truncating at 6 messages to allow for quicker iterations while
-we figure out how to decode the messages and store in ElasticSearch
-
-```
-Sending Message ID: 1674c66d7eb92b56
-2018/11/25 11:50:14 saving Message ID:  1674c66d7eb92b56
-Sending Message ID: 1674c52e45369cb2
-Sending Message ID: 1674c4fef3f29c46
-Sending Message ID: 1674c43db8e5434b
-2018/11/25 11:50:15 Indexed data id 1674c66d7eb92b56 to index mail, type document
-2018/11/25 11:50:15 saving Message ID:  1674c52e45369cb2
-Sending Message ID: 1674c3d0d75bb5a0
-2018/11/25 11:50:15 Indexed data id 1674c52e45369cb2 to index mail, type document
-2018/11/25 11:50:15 saving Message ID:  1674c4fef3f29c46
-2018/11/25 11:50:15 Indexed data id 1674c4fef3f29c46 to index mail, type document
-2018/11/25 11:50:15 saving Message ID:  1674c43db8e5434b
-Sending Message ID: 1674c3c1f389215b
-2018/11/25 11:50:15 Indexed data id 1674c43db8e5434b to index mail, type document
-2018/11/25 11:50:15 saving Message ID:  1674c3d0d75bb5a0
-2018/11/25 11:50:15 Indexed data id 1674c3d0d75bb5a0 to index mail, type document
-2018/11/25 11:50:15 saving Message ID:  1674c3c1f389215b
-2018/11/25 11:50:15 Indexed data id 1674c3c1f389215b to index mail, type document
-```
 
 # Debugging
 
