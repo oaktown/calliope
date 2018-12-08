@@ -10,18 +10,19 @@ import (
 )
 
 type Message struct {
-  Id       string
-  Url      string
-  Date     time.Time
-  To       string
-  Cc       string
-  From     string
-  Subject  string
-  Body     string
-  ThreadId string
-  LabelIds []string
-  Snippet  string
-  Source   gmail.Message
+  Id                  string
+  Url                 string
+  Date                time.Time
+  DownloadedStartedAt time.Time
+  To                  string
+  Cc                  string
+  From                string
+  Subject             string
+  Body                string
+  ThreadId            string
+  LabelIds            []string
+  Snippet             string
+  Source              gmail.Message
 }
 
 type Downloader struct {
@@ -35,6 +36,7 @@ type Downloader struct {
   DoList       func(*gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error)
   DoGet        func(request *gmail.UsersMessagesGetCall) (*gmail.Message, error)
   DoListLabels func(call *gmail.UsersLabelsListCall) ()
+  StartedAt time.Time
 }
 
 type Options struct {
@@ -56,6 +58,7 @@ func New(svc *gmail.Service, options Options, maxWorkers int) Downloader {
     Options:      options,
     DoList:       DoList,
     DoGet:        DoGet,
+    StartedAt:   time.Now(),
   }
 }
 
@@ -154,7 +157,7 @@ func DownloadFullMessage(d Downloader, id string) {
     log.Printf("Unable to retrieve message %v: %v", id, err)
     return
   }
-  message, _ := GmailToMessage(*gmailMsg, d.Options.InboxUrl)
+  message, _ := GmailToMessage(*gmailMsg, d.Options.InboxUrl, d.StartedAt)
   if err != nil {
     log.Printf("Unable to decode message %v: %v", id, err)
     return
@@ -200,23 +203,24 @@ func ExtractHeader(gmail gmail.Message, field string) string {
   return ""
 }
 
-func GmailToMessage(gmail gmail.Message, inboxUrl string) (Message, error) {
+func GmailToMessage(gmail gmail.Message, inboxUrl string, downloaded time.Time) (Message, error) {
   // TODO: decode all of the fields, not just plain-text body
   date := time.Unix(gmail.InternalDate/1000, 0)
   body := BodyText(gmail)
   message := Message{
-    Id:       gmail.Id,
-    Url:      fmt.Sprintf("%v#inbox/%v", inboxUrl, gmail.ThreadId),
-    Date:     date,
-    To:       ExtractHeader(gmail, "To"),
-    Cc:       ExtractHeader(gmail, "Cc"),
-    From:     ExtractHeader(gmail, "From"),
-    Subject:  ExtractHeader(gmail, "Subject"),
-    Body:     body,
-    ThreadId: gmail.ThreadId,
-    LabelIds: gmail.LabelIds,
-    Snippet:  gmail.Snippet,
-    Source:   gmail,
+    Id:                  gmail.Id,
+    Url:                 fmt.Sprintf("%v#inbox/%v", inboxUrl, gmail.ThreadId),
+    Date:                date,
+    DownloadedStartedAt: downloaded,
+    To:                  ExtractHeader(gmail, "To"),
+    Cc:                  ExtractHeader(gmail, "Cc"),
+    From:                ExtractHeader(gmail, "From"),
+    Subject:             ExtractHeader(gmail, "Subject"),
+    Body:                body,
+    ThreadId:            gmail.ThreadId,
+    LabelIds:            gmail.LabelIds,
+    Snippet:             gmail.Snippet,
+    Source:              gmail,
   }
   return message, nil
 }
