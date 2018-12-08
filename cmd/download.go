@@ -1,10 +1,12 @@
 package cmd
 
 import (
+  "fmt"
   "github.com/oaktown/calliope/gmailservice"
   "github.com/oaktown/calliope/misc"
   "github.com/oaktown/calliope/store"
   "github.com/spf13/cobra"
+  "github.com/spf13/viper"
   "log"
   "strconv"
 )
@@ -28,7 +30,9 @@ var downloadCmd = &cobra.Command{
   },
 }
 
-func reader(s *store.Service, messageChannel <-chan *gmailservice.Message, workers chan bool) {
+func reader(s *store.Service, messageChannel <-chan *gmailservice.Message, maxWorkers int) {
+  workers := make(chan bool, maxWorkers)
+  var savedMessages int64
   for message := range messageChannel { // reads from channel until it's closed
     workers <- true
     go func() {
@@ -39,21 +43,32 @@ func reader(s *store.Service, messageChannel <-chan *gmailservice.Message, worke
       } else {
         log.Println("Saved:\n  ", message.Subject)
       }
+      savedMessages++
     }()
   }
+  for i := 0; i < maxWorkers; i++ {
+    workers <- true
+  }
+  fmt.Println("Total saved messages: ", savedMessages)
 }
 
 func download() {
+  exclude_headers := viper.GetStringMapStringSlice("exclude_headers_with_values")
+  for k, v := range exclude_headers {
+   fmt.Printf("key: %s\n", k)
+   for _, s := range v {
+   fmt.Printf("  %s\n", s)
+   }
+  }
   max, _ := strconv.ParseInt(limit, 10, 64)
-  maxWorkers := 10
-  workers := make(chan bool, maxWorkers)
 
   gsvc := misc.GetGmailClient()
   s := misc.GetStoreClient()
   options := gmailservice.Options{
-    Query:    query,
-    Limit:    max,
-    InboxUrl: inboxUrl,
+    Query:          query,
+    Limit:          max,
+    InboxUrl:       inboxUrl,
+    ExcludeHeaders: exclude_headers,
   }
   d := gmailservice.New(gsvc, options, 200)
   labels := gmailservice.Download(d)
@@ -61,9 +76,5 @@ func download() {
     log.Println("Error saving labels")
   }
 
-  reader(s, d.MessageChan, workers)
-
-  for i := 0; i < maxWorkers; i++ {
-    workers <- true
-  }
+  reader(s, d.MessageChan, 10)
 }
