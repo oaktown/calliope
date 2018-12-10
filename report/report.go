@@ -43,7 +43,7 @@ func Run(s *store.Service, wr io.Writer, options Options) {
         "gmailUrl": gmailUrl,
         "jump":     jump,
       }).
-      ParseFiles("report.html"))
+      ParseFiles("templates/report.html"))
   data := Data{
     Label:    options.Label,
     Messages: messages,
