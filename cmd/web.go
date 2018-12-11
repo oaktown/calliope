@@ -6,6 +6,7 @@ import (
   "fmt"
   "github.com/oaktown/calliope/misc"
   "github.com/oaktown/calliope/report"
+  "github.com/oaktown/calliope/store"
   "github.com/olivere/elastic"
   "github.com/spf13/cobra"
   "html/template"
@@ -50,12 +51,6 @@ type Data struct {
 }
 
 func web() {
-  //options := report.LabelQueryOptions{
-  //  Label:    label,
-  //  Starred:  !allMessages,
-  //  InboxUrl: inboxUrl,
-  //  Size:     size,
-  //}
   starred := !allMessages
   client := misc.GetStoreClient()
   initialQuery := true
@@ -65,46 +60,54 @@ func web() {
   })
 
   http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-    var req *elastic.SearchService
     var query string
     if initialQuery {
-      boolQuery, _ := client.GetQueryFromLabel(label, starred, size)
-      source, _ := boolQuery.Source()
-      q, _ := json.MarshalIndent(source, "  ", "  ")
-      query = fmt.Sprintf("{\n  \"query\": %s\n}", q)
-      fmt.Println("Query using label: ", query)
+      query = GetInitialQueryString(client, starred)
       initialQuery = false
     } else {
-      fmt.Println("Query from form")
       query = r.FormValue("query")
     }
 
-    req = client.GetRawQuery(query, size)
-
-    var reportBuffer bytes.Buffer
-    report.Run(client, &reportBuffer, req, inboxUrl)
-
-    t := template.Must(template.ParseFiles(
-      "templates/layout.html",
-      "templates/web-ui.html",
-    ))
-    stats, _ := client.GetStats()
-    reportHtml := template.HTML(reportBuffer.String())
-    data := Data{
-      Title:       "Calliope Email Report",
-      Size:        size,
-      Query:       query,
-      Report:      reportHtml,
-      Earliest:    stats.Earliest,
-      Latest:      stats.Latest,
-      TotalEmails: stats.Total,
-    }
-    if err := t.ExecuteTemplate(w, "layout", data); err != nil {
-      log.Println("Error occurred while executing template: ", err)
-    }
-
+    ShowHomePage(client, query, w)
   })
 
   fmt.Printf("Starting web server: http://localhost:%s/\n\n", port)
   log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+
+func ShowHomePage(client *store.Service, query string, w http.ResponseWriter) {
+  stats, _ := client.GetStats()
+  reportHtml := template.HTML(GetReportHtml(client, query))
+  data := Data{
+    Title:       "Calliope Email Report",
+    Size:        size,
+    Query:       query,
+    Report:      reportHtml,
+    Earliest:    stats.Earliest,
+    Latest:      stats.Latest,
+    TotalEmails: stats.Total,
+  }
+
+  t := template.Must(template.ParseFiles("templates/layout.html", "templates/web-ui.html"))
+
+  if err := t.ExecuteTemplate(w, "layout", data); err != nil {
+    log.Println("Error occurred while executing template: ", err)
+  }
+}
+
+func GetReportHtml(client *store.Service, query string) string {
+  var req *elastic.SearchService
+  req = client.GetRawQuery(query, size)
+  var reportBuffer bytes.Buffer
+  report.Run(client, &reportBuffer, req, inboxUrl)
+  return reportBuffer.String()
+}
+
+func GetInitialQueryString(client *store.Service, starred bool) string {
+  boolQuery, _ := client.GetQueryFromLabel(label, starred, size)
+  source, _ := boolQuery.Source()
+  q, _ := json.MarshalIndent(source, "  ", "  ")
+  query = fmt.Sprintf("{\n  \"query\": %s\n}", q)
+  fmt.Println("Query using label: ", query)
+  return query
 }
