@@ -9,6 +9,7 @@ import (
   "golang.org/x/net/context"
   "log"
   "reflect"
+  "time"
 )
 
 type Service struct {
@@ -183,20 +184,41 @@ func (s *Service) GetMessages(label string, starred bool, size int) ([]*gmailser
 }
 
 type Stats struct {
-  Earliest string
-  Latest   string
+  Earliest time.Time
+  Latest   time.Time
   Total    int64
 }
 
 func (s *Service) GetStats() (Stats, error) {
   var stats Stats
   builder := s.Client.Search().Index(MailIndex).Query(elastic.NewMatchAllQuery())
+  builder = builder.Aggregation("maxDate", elastic.NewMaxAggregation().Field("Date"))
+  builder = builder.Aggregation("minDate", elastic.NewMinAggregation().Field("Date"))
   results, err := builder.Pretty(true).Do(s.Ctx)
   if err != nil {
     log.Println("Error with getting stats: ", err)
     return stats, err
   }
+
   stats.Total = results.Hits.TotalHits
 
+  aggs := results.Aggregations
+
+  max, found := aggs.Max("maxDate")
+  if found != true {
+    log.Println("Could not get maxDate")
+  }
+  stats.Latest = time.Unix(toSeconds(*max.Value), 0)
+
+  min, found := aggs.Min("minDate")
+  if found != true {
+    log.Println("Could not get minDate")
+  }
+  stats.Earliest = time.Unix(toSeconds(*min.Value), 0)
+
   return stats, nil
+}
+
+func toSeconds(timeInMs float64) int64 {
+  return int64(timeInMs / 1000.0)
 }

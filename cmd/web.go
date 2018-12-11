@@ -9,6 +9,7 @@ import (
   "html/template"
   "log"
   "net/http"
+  "time"
 )
 
 var port string
@@ -36,8 +37,8 @@ var webCmd = &cobra.Command{
 type Data struct {
   Title string
   Report template.HTML
-  Earliest string
-  Latest string
+  Earliest time.Time
+  Latest time.Time
   TotalEmails int64
 }
 
