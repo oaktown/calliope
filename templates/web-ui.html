@@ -1,5 +1,7 @@
 {{define "content"}}
-    <h1>Calliope stats</h1>
+    <h1>Calliope</h1>
+    <p>Email analysis</p>
+    <h2>Server stats:</h2>
     <ul>
         <li>
             Number of emails: {{.TotalEmails}}
@@ -14,8 +16,17 @@
 
     <div class="search-form">
         <form action="/" method="get">
-            <textarea rows="20" cols="120" name="query" placeholder="Enter JSON request here"></textarea>
-            <input type="submit" value="submit">
+            <div>
+                <label for="query">Query:</label><br>
+                <textarea rows="20" cols="120" name="query">{{.Query}}</textarea>
+            </div>
+            <div>
+                <label for="size">Size:</label><br>
+                <input name="size" placeholder="size" value="{{.Size}}">
+            </div>
+            <div>
+                <input type="submit" value="submit">
+            </div>
         </form>
     </div>
 

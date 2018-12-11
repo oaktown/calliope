@@ -4,6 +4,7 @@ import (
   "fmt"
   "github.com/oaktown/calliope/gmailservice"
   "github.com/oaktown/calliope/store"
+  "github.com/olivere/elastic"
   "html/template"
   "io"
   "log"
@@ -17,21 +18,20 @@ type Options struct {
 }
 
 type Data struct {
-  Label    string
   Messages []*gmailservice.Message
 }
-
-func Run(s *store.Service, wr io.Writer, options Options) {
+//report.Run(client, &reportBuffer, req, inboxUrl)
+func Run(s *store.Service, wr io.Writer, req *elastic.SearchService, inboxUrl string) {
 
   gmailUrl := func(threadId string) string {
-    return fmt.Sprintf("%v#inbox/%v", options.InboxUrl, threadId)
+    return fmt.Sprintf("%v#inbox/%v", inboxUrl, threadId)
   }
 
   jump := func(id string) string {
     return fmt.Sprint("#", id)
   }
 
-  messages, err := s.GetMessages(options.Label, options.Starred, options.Size)
+  messages, err := s.GetMessages(req)
   if err != nil {
     log.Println("Exiting due to error")
     return
@@ -45,7 +45,6 @@ func Run(s *store.Service, wr io.Writer, options Options) {
       }).
       ParseFiles("templates/report.html"))
   data := Data{
-    Label:    options.Label,
     Messages: messages,
   }
   if err := report.Execute(wr, data); err != nil {
