@@ -1,0 +1,18 @@
+{{define "content"}}
+    <h1>Calliope stats</h1>
+    <ul>
+        <li>
+            Number of emails: {{.TotalEmails}}
+        </li>
+        <li>
+            Earliest email date: {{.Earliest}}
+        </li>
+        <li>
+            Latest email date: {{.Latest}}
+        </li>
+    </ul>
+
+    <div class="report">
+        {{.Report}}
+    </div>
+{{end}}

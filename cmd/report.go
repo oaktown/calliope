@@ -4,6 +4,7 @@ import (
   "github.com/spf13/cobra"
   "github.com/oaktown/calliope/misc"
   "github.com/oaktown/calliope/report"
+  "os"
 )
 
 var label, url string
@@ -17,7 +18,7 @@ func init() {
   reportCmd.MarkFlagRequired("label")
   reportCmd.Flags().BoolVarP(&allMessages, "all-messages", "A", false, "By default, we only query for starred messages. With this flag, we get all messages for the label whether they are starred or not.")
   reportCmd.Flags().IntVarP(&size, "size", "s", 1000, "The max number of results to return from a search. Defaults to 1000.")
-  downloadCmd.Flags().StringVarP(&url, "url", "U", "https://mail.google.com/mail/", "Url for gmail (useful if you are logged into multiple accounts).")
+  reportCmd.Flags().StringVarP(&url, "url", "U", "https://mail.google.com/mail/", "Url for gmail (useful if you are logged into multiple accounts).")
 }
 
 var reportCmd = &cobra.Command{
@@ -31,6 +32,6 @@ var reportCmd = &cobra.Command{
       InboxUrl: url,
       Size: size,
     }
-    report.Run(misc.GetStoreClient(), options)
+    report.Run(misc.GetStoreClient(), os.Stdout, options)
   },
 }
