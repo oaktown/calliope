@@ -5,6 +5,7 @@ import (
   "fmt"
   "github.com/oaktown/calliope/misc"
   "github.com/oaktown/calliope/report"
+  "github.com/oaktown/calliope/store"
   "github.com/spf13/cobra"
   "html/template"
   "log"
@@ -43,31 +44,43 @@ type Data struct {
 }
 
 func web() {
-  var reportHtml bytes.Buffer
   options := report.Options{
     Label: label,
     Starred: !allMessages,
     InboxUrl: inboxUrl,
     Size: size,
   }
+
   client := misc.GetStoreClient()
-  report.Run(client, &reportHtml, options)
 
   http.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
-    t := template.Must(template.ParseFiles("templates/layout.html", "templates/web-ui.html"))
-    stats, _ := client.GetStats()
-    data := Data{
-      Title: "hi",
-      Report: template.HTML(reportHtml.String()),
-      Earliest: stats.Earliest,
-      Latest: stats.Latest,
-      TotalEmails: stats.Total,
-    }
-    if err:= t.ExecuteTemplate(w, "layout", data); err != nil {
-      log.Println("Error occurred while executing template: ", err)
-    }
+    ShowReport(client, options, r, w)
   })
 
   fmt.Printf("Starting web server: http://localhost:%s/\n\n", port)
-  log.Fatal(http.ListenAndServe(":" + port, nil))
+  log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+
+func ShowReport(client *store.Service, options report.Options, r *http.Request, w http.ResponseWriter) {
+  var reportBuffer bytes.Buffer
+  report.Run(client, &reportBuffer, options)
+
+  t := template.Must(template.ParseFiles(
+    "templates/layout.html",
+    "templates/web-ui.html",
+    ))
+  queryJson := r.FormValue("query")
+  fmt.Println(queryJson)
+  stats, _ := client.GetStats()
+  reportHtml := template.HTML(reportBuffer.String())
+  data := Data{
+    Title:       "Calliope Email Report",
+    Report:      reportHtml,
+    Earliest:    stats.Earliest,
+    Latest:      stats.Latest,
+    TotalEmails: stats.Total,
+  }
+  if err := t.ExecuteTemplate(w, "layout", data); err != nil {
+    log.Println("Error occurred while executing template: ", err)
+  }
 }
