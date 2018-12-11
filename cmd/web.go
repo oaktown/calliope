@@ -1,10 +1,12 @@
 package cmd
 
 import (
+  "bytes"
   "fmt"
   "github.com/oaktown/calliope/misc"
   "github.com/oaktown/calliope/report"
   "github.com/spf13/cobra"
+  "html/template"
   "log"
   "net/http"
 )
@@ -31,16 +33,32 @@ var webCmd = &cobra.Command{
   },
 }
 
+type Data struct {
+  Title string
+  Report template.HTML
+}
+
 func web() {
+  var reportHtml bytes.Buffer
   options := report.Options{
     Label: label,
     Starred: !allMessages,
     InboxUrl: inboxUrl,
     Size: size,
   }
+  report.Run(misc.GetStoreClient(), &reportHtml, options)
+
   http.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
-    report.Run(misc.GetStoreClient(), w, options)
+    t := template.Must(template.ParseFiles("templates/layout.html", "templates/web-ui.html"))
+    data := Data{
+      Title: "hi",
+      Report: template.HTML(reportHtml.String()),
+    }
+    if err:= t.ExecuteTemplate(w, "layout", data); err != nil {
+      log.Println("Error occurred while executing template: ", err)
+    }
   })
+
   fmt.Printf("Starting web server: http://localhost:%s/\n\n", port)
   log.Fatal(http.ListenAndServe(":" + port, nil))
 }
