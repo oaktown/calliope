@@ -36,6 +36,9 @@ var webCmd = &cobra.Command{
 type Data struct {
   Title string
   Report template.HTML
+  Earliest string
+  Latest string
+  TotalEmails int64
 }
 
 func web() {
@@ -46,13 +49,18 @@ func web() {
     InboxUrl: inboxUrl,
     Size: size,
   }
-  report.Run(misc.GetStoreClient(), &reportHtml, options)
+  client := misc.GetStoreClient()
+  report.Run(client, &reportHtml, options)
 
   http.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
     t := template.Must(template.ParseFiles("templates/layout.html", "templates/web-ui.html"))
+    stats, _ := client.GetStats()
     data := Data{
       Title: "hi",
       Report: template.HTML(reportHtml.String()),
+      Earliest: stats.Earliest,
+      Latest: stats.Latest,
+      TotalEmails: stats.Total,
     }
     if err:= t.ExecuteTemplate(w, "layout", data); err != nil {
       log.Println("Error occurred while executing template: ", err)

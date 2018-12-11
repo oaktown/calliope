@@ -181,3 +181,22 @@ func (s *Service) GetMessages(label string, starred bool, size int) ([]*gmailser
   log.Println("Messages found: ", len(messages))
   return messages, nil
 }
+
+type Stats struct {
+  Earliest string
+  Latest   string
+  Total    int64
+}
+
+func (s *Service) GetStats() (Stats, error) {
+  var stats Stats
+  builder := s.Client.Search().Index(MailIndex).Query(elastic.NewMatchAllQuery())
+  results, err := builder.Pretty(true).Do(s.Ctx)
+  if err != nil {
+    log.Println("Error with getting stats: ", err)
+    return stats, err
+  }
+  stats.Total = results.Hits.TotalHits
+
+  return stats, nil
+}
