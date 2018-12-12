@@ -3,9 +3,9 @@ Email query and visualization for observation and study of wild email monsters
 
 ![angry faced envelope with arms waving](images/email_monster.png)
 
-
 ## Setting up Go and cloning the repo
 
+### Mac
 Install using homebrew:
 
 ```
@@ -24,7 +24,7 @@ dep ensure # Update dependencies
 ```
 The last line shouldn't cause any changes since we're checking all dependencies into `vendor` (because, unlike npm or ruby gems, there is no registry – if owners rename repos, it would cause a problem for anyone using their packages.)
 
-## Install Elasticsearch using Docker
+### Install Elasticsearch using Docker
 
 This is adapted from olivere's [elastic-with-docker repo](https://github.com/olivere/elastic-with-docker).
 
@@ -78,12 +78,12 @@ docker-compose -f docker-compose.local.yml down
 
 There's a Chrome extension called [ElasticSearch Head](https://chrome.google.com/webstore/detail/elasticsearch-head/ffmkiejjmecolpfloofpjologoblkegm) that you might find useful.
 
-# Setup a Google Cloud project
+### Setup a Google Cloud project
 
 We were inspired by https://github.com/vcollak/GmailContacts, which has nice
 setup instructions.
 
-# Build and run the app
+## Build and run the app
 
 When building the app `-i` will build all the dependencies and `-v` prints
 out what its building.  The following commands will generate an executable
@@ -101,7 +101,7 @@ go run main.go
 
 This command will display help.
 
-Note: One of the options is an url to open the thread in Gmail (not the specific email, just the thread that it's in). 
+Note: One of the options for several commands is an url to open the thread in Gmail (not the specific email, just the thread that it's in). 
 By default, the url is `https://mail.google.com/mail/#inbox/<thread id>`, but if you are logged into more than one
 account, can pass in a modified url. For example:
 
@@ -118,11 +118,11 @@ go run main.go download -l 1000 -d "2018/01/01" -u "https://mail.google.com/mail
 
 will link to the 3rd logged in account. See also [Debugging](#debugging), below.
 
-## Config
+### Config
 
 In addition to command line options, you can provide a configuration file (currently named calliope.yml, and currently stored in the working directory, although this will change eventually). Currently, it only has one option: `exclude_headers_with_values` which can be used to exclude messages from being saved into Elasticsearch (useful if you want to filter out automated notifications, email lists, etc.). There is a sample file `calliope-example.yml` that shows a configuration to exclude common mailing lists.
 
-## Oauth
+### Oauth
 
 The first time you run the application, you will be prompted to give permission (via Oauth) like so:
 
@@ -148,19 +148,6 @@ Saving credential file to: oauth_token.json
 
 Note: Next time, it will use the saved token instead of prompting you.
 
-
-# Debugging
-
-To debug, install [Delve](https://github.com/derekparker/delve). Follow the installation 
-instructions for your OS, then you can run it like:
-
-```bash
-dlv debug main.go -- download -q "is:starred label:devchix" -l 10 -R
-```
-
-Note: The `--` separates `dlv` commandline args from the commandline args of the program being debugged. 
-
-
 ### Deleting index
 You can use `curl` to delete an email from the index using its id:
 ```bash
@@ -172,7 +159,7 @@ Or you can delete the entire index:
 curl -XDELETE localhost:9200/mail
 ```
 
-# Unit tests
+## Unit tests
 To run tests:
 
 ```bash
@@ -189,3 +176,13 @@ curl localhost:9200/mail/document/<id> > fixture.json
 Removing stuff you don't need for the test would be nice, too, as it would make it easier to find 
 relevant data in the fixture.
 
+## Debugging
+   
+To debug, install [Delve](https://github.com/derekparker/delve). Follow the installation 
+instructions for your OS, then you can run it like:
+
+```bash
+dlv debug main.go -- download -q "is:starred label:devchix" -l 10 -R
+```
+
+Note: The `--` separates `dlv` commandline args from the commandline args of the program being debugged. 
