@@ -121,7 +121,7 @@ func (s *Service) SaveMessage(data gmailservice.Message) error {
   return nil
 }
 
-func (s *Service) GenerateMessagesQuery(labelName string, starred bool) (*elastic.BoolQuery, error) {
+func (s *Service) GetQueryFromLabel(labelName string, starred bool, size int) (*elastic.BoolQuery, error) {
   labelId, err := s.FindLabelId(labelName)
   if err != nil {
     return nil, err
@@ -134,10 +134,12 @@ func (s *Service) GenerateMessagesQuery(labelName string, starred bool) (*elasti
     starredQuery := elastic.NewTermQuery("LabelIds.keyword", "STARRED")
     query = query.Must(starredQuery)
   }
-  source, _ := query.Source()
-  jsonStr, _ := json.MarshalIndent(source, "", "\t")
-  log.Printf("source: %v\n", string(jsonStr))
   return query, nil
+}
+
+func (s *Service) GetRawQuery (queryStr string, size int) *elastic.SearchService {
+  fmt.Printf("GetRawQuery: %s, size: %d\n\n", queryStr, size)
+  return s.Client.Search().Index(s.MailIndex).Source(queryStr).Size(size)
 }
 
 func (s *Service) FindLabelId(labelName string) (string, error) {
@@ -158,20 +160,11 @@ func (s *Service) FindLabelId(labelName string) (string, error) {
   return labelId, nil
 }
 
-func (s *Service) GetMessages(label string, starred bool, size int) ([]*gmailservice.Message, error) {
-  query, err := s.GenerateMessagesQuery(label, starred)
-  if err != nil {
-    log.Println("Query error: ", err)
-    return nil, err
-  }
+func (s *Service) GetMessages(req *elastic.SearchService) ([]*gmailservice.Message, error) {
   var messages []*gmailservice.Message
-  result, err := s.Client.Search().
-    Index(s.MailIndex).
-    Query(query).
-    Size(size).
-    Do(s.Ctx)
+  result, err := req.Do(s.Ctx)
   if err != nil {
-    log.Println("Couldn't search. Exiting")
+    log.Println("Couldn't search. Exiting due to: ", err)
     return nil, err
   }
   var messageForReflect gmailservice.Message
