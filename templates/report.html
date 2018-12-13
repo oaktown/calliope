@@ -19,23 +19,9 @@
     }
 </style>
 
-{{/*<script>*/}}
-    {{/*data = {{.Data}}*/}}
-    {{/*// data = [*/}}
-    {{/*//     {*/}}
-    {{/*//         Date: "2018-01-01",*/}}
-    {{/*//         Messages: 2*/}}
-    {{/*//     },*/}}
-    {{/*//     {*/}}
-    {{/*//         Date: "2018-01-02",*/}}
-    {{/*//         Messages: 3*/}}
-    {{/*//     },*/}}
-    {{/*//     {*/}}
-    {{/*//         Date: "2018-01-03",*/}}
-    {{/*//         Messages: 1*/}}
-    {{/*//     }*/}}
-    {{/*// ]*/}}
-{{/*</script>*/}}
+<script>
+    data = JSON.parse({{.ChartJson}})
+</script>
 
 <svg class="chart"></svg>
 
@@ -108,45 +94,6 @@
 
 <script src="//d3js.org/d3.v3.min.js" charset="utf-8"></script>
 <script>
-    data = [
-        {
-            date: "2018/10/01",
-            messages: 2
-        },
-        {
-            date: "2018/10/02",
-            messages: 4
-        },
-        {
-            date: "2018/10/03",
-            messages: 2
-        },
-        {
-            date: "2018/10/04",
-            messages: 1
-        },
-        {
-            date: "2018/10/05",
-            messages: 12
-        },
-        {
-            date: "2018/10/06",
-            messages: 18
-        },
-        {
-            date: "2018/10/07",
-            messages: 5
-        },
-        {
-            date: "2018/10/08",
-            messages: 0
-        },
-        {
-            date: "2018/10/09",
-            messages: 1
-        },
-    ]
-
     var margin = {top: 20, right: 30, bottom: 30, left: 40},
         width = 960 - margin.left - margin.right,
         height = 500 - margin.top - margin.bottom;
@@ -171,8 +118,8 @@
         .append("g")
         .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-    x.domain(data.map(function(d) { return d.date; }));
-    y.domain([0, d3.max(data, function(d) { return d.messages; })]);
+    x.domain(data.map(function(d) { return d.Date; }));
+    y.domain([0, d3.max(data, function(d) { return d.Messages; })]);
 
     chart.append("g")
         .attr("class", "x axis")
@@ -187,8 +134,8 @@
         .data(data)
         .enter().append("rect")
         .attr("class", "bar")
-        .attr("x", function(d) { return x(d.date); })
-        .attr("y", function(d) { return y(d.messages); })
-        .attr("height", function(d) { return height - y(d.messages); })
+        .attr("x", function(d) { return x(d.Date); })
+        .attr("y", function(d) { return y(d.Messages); })
+        .attr("height", function(d) { return height - y(d.Messages); })
         .attr("width", x.rangeBand());
 </script>
