@@ -17,9 +17,16 @@ type Options struct {
   Size     int
 }
 
-type Data struct {
-  Messages []*gmailservice.Message
+type BarData struct {
+  Date     string
+  Messages int
 }
+
+type Data struct {
+  ChartJson []BarData
+  Messages  []*gmailservice.Message
+}
+
 //report.Run(client, &reportBuffer, req, inboxUrl)
 func Run(s *store.Service, wr io.Writer, req *elastic.SearchService, inboxUrl string) {
 
@@ -37,6 +44,8 @@ func Run(s *store.Service, wr io.Writer, req *elastic.SearchService, inboxUrl st
     return
   }
 
+  chartJson := getChartData(messages)
+
   report := template.Must(
     template.New("report.html").
       Funcs(template.FuncMap{
@@ -45,9 +54,27 @@ func Run(s *store.Service, wr io.Writer, req *elastic.SearchService, inboxUrl st
       }).
       ParseFiles("templates/report.html"))
   data := Data{
-    Messages: messages,
+    ChartJson: chartJson,
+    Messages:  messages,
   }
   if err := report.Execute(wr, data); err != nil {
     log.Println("Error rendering template: ", err)
   }
+}
+
+func getChartData(messages []*gmailservice.Message) []BarData {
+  data := make(map[string]int)
+  for _, m := range messages {
+    date := m.Date.Format("2006-01-02")
+    data[date] = data[date] + 1
+  }
+  var chart []BarData
+  for d, n := range data {
+    chart = append(chart, BarData{
+      Date:     d,
+      Messages: n,
+    })
+  }
+
+  return chart
 }
