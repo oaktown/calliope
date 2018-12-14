@@ -21,11 +21,23 @@
                 <input name="gmailurl" placeholder="gmailurl" value="{{.Fields.InboxUrl}}">
             </div>
             <div>
+                <label for="participants">Participants (applies to From:, To:, and CC:):</label><br>
+                <input name="participants" value="{{.Fields.Participants}}">
+            </div>
+            <div>
+                <label for="startDate">Start date:</label><br>
+                <input name="startDate" value="{{.Fields.StartDate}}">
+            </div>
+            <div>
+                <label for="endDate">End date:</label><br>
+                <input name="endDate" value="{{.Fields.EndDate}}">
+            </div>
+            <div>
                 <label for="label">Label:</label><br>
                 <input name="label" value="{{.Fields.Label}}">
             </div>
             <div>
-                <label for="starred">Starred:</label><br>
+                <label for="starred">Starred only:</label><br>
                 <input type="checkbox" name="starred" value="true" {{if .Fields.Starred}}checked{{end}}>
             </div>
             <div>

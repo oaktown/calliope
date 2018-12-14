@@ -1,6 +1,7 @@
 package report
 
 import (
+  "bytes"
   "encoding/json"
   "fmt"
   "github.com/oaktown/calliope/gmailservice"
@@ -10,6 +11,19 @@ import (
   "io"
   "log"
 )
+
+type QueryOptions struct {
+  StartDate     string
+  EndDate       string
+  Participants  string
+  Label         string
+  InboxUrl      string
+  Size          int
+  Starred       bool
+  SortField     string
+  SortAscending bool
+  Query         string
+}
 
 type Options struct {
   Label    string
@@ -94,4 +108,49 @@ func getChartData(messages []*gmailservice.Message) []BarData {
 
   }
   return chart
+}
+
+type Report struct {
+  Html template.HTML
+  Query string
+  ChartData string // Maybe for later; right now this can be part of html
+}
+
+func GetReport(opt QueryOptions, client *store.Service) (Report) {
+  var query string
+  if opt.Query == "" {
+    query = QueryStringFromLabel(client, opt)
+  } else {
+    query = opt.Query
+  }
+
+  reportHtml := template.HTML(GetReportHtml(client, query, opt.Size, opt.InboxUrl))
+  return Report{
+    Query: query,
+    Html: reportHtml,
+  }
+}
+
+func GetReportHtml(client *store.Service, query string, size int, inboxUrl string) string {
+  // TODO: Change this to return html (which is limited to size), the chart data which should be everything within
+  // reason, and the query JSON.
+  // Also, move this to report.
+  var req *elastic.SearchService
+  req = client.GetRawQuery(query, size)
+  var reportBuffer bytes.Buffer
+  Run(client, &reportBuffer, req, inboxUrl)
+  return reportBuffer.String()
+}
+
+func QueryStringFromLabel(client *store.Service, opt QueryOptions) string {
+  if opt.Label == "" {
+    log.Println("No label")
+    return ""
+  }
+  boolQuery, _ := client.GetQueryFromLabel(opt.Label, opt.Starred, opt.Size)
+  source, _ := boolQuery.Source()
+  q, _ := json.MarshalIndent(source, "  ", "  ")
+  query := fmt.Sprintf("{\n  \"query\": %s\n}", q)
+  log.Println("Query:", query)
+  return query
 }

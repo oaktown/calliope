@@ -3,6 +3,7 @@ package cmd
 import (
   "fmt"
   "github.com/oaktown/calliope/misc"
+  "github.com/oaktown/calliope/report"
   "github.com/oaktown/calliope/web"
   "github.com/spf13/cobra"
   "log"
@@ -11,7 +12,6 @@ import (
 )
 
 var port string
-var allMessages bool
 
 func init() {
   rootCmd.AddCommand(webCmd)
@@ -34,14 +34,12 @@ func startServer() {
 
   http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
     log.Println("Request path:", r.URL.Path)
-
     client := misc.GetStoreClient()
-    label := r.FormValue("label")
-    fmt.Println("starred:", r.FormValue("starred"))
-    starred := r.FormValue("starred") == "true"
+    var sortField string
+    if sortField = r.FormValue("sort"); sortField == "" {
+      sortField = "Date"
+    }
     inboxUrl := r.FormValue("gmailurl")
-    sortField := r.FormValue("sort")
-    sortAscending := r.FormValue("ascending") == "true"
     if inboxUrl == "" {
       inboxUrl = "https://mail.google.com/mail/"
     }
@@ -50,25 +48,22 @@ func startServer() {
       size = 100
     }
 
-    opt := web.Options{
-      Label:         label,
-      Starred:       starred,
+    // TODO: Move query here; record contains all the info needed for report
+    opt := report.QueryOptions{
+      StartDate:     r.FormValue("startDate"),
+      EndDate:       r.FormValue("endDate"),
+      Participants:  r.FormValue("participants"),
+      Label:         r.FormValue("label"),
+      Starred:       r.FormValue("starred") == "true",
       InboxUrl:      inboxUrl,
       Size:          size,
       SortField:     sortField,
-      SortAscending: sortAscending,
+      SortAscending: r.FormValue("ascending") == "true",
+      Query: r.FormValue("query"),
     }
-
     log.Printf("options: %+v\n", opt)
-    var query string
-    if query = r.FormValue("query"); query == "" {
-      query = web.QueryStringFromLabel(client, opt)
-    } else {
-      query = r.FormValue("query")
-    }
 
-    log.Println("Query (web.go):", query)
-    web.ShowHomePage(client, query, w, opt)
+    web.ShowHomePage(client, w, opt)
   })
 
   fmt.Printf("Starting web server: http://localhost:%s/\n\n", port)
