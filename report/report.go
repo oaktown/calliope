@@ -12,6 +12,11 @@ import (
   "log"
 )
 
+type Report struct {
+  Html  template.HTML
+  Query string
+}
+
 type QueryOptions struct {
   StartDate     string
   EndDate       string
@@ -25,26 +30,69 @@ type QueryOptions struct {
   Query         string
 }
 
-type Options struct {
-  Label    string
-  Starred  bool
-  InboxUrl string
-  Size     int
-}
-
 type BarData struct {
   Date     string
   Messages int
 }
 
-type Data struct {
+type Chart []BarData
+
+type HtmlData struct {
   ChartJson template.HTML
   Messages  []*gmailservice.Message
 }
 
-//report.Run(client, &reportBuffer, req, inboxUrl)
-func Run(s *store.Service, wr io.Writer, req *elastic.SearchService, inboxUrl string) {
+type ReportGenerator struct {
+  Opt QueryOptions
+  Svc *store.Service
+}
 
+func GetReport(opt QueryOptions, svc *store.Service) Report {
+  generator := ReportGenerator{
+    Opt: opt,
+    Svc: svc,
+  }
+
+  // TODO: Handle errors
+  var query string
+  var searchService *elastic.SearchService
+  if opt.Query == "" {
+    var searchSource *elastic.SearchSource
+    searchSource = generator.BuildQuery()
+    source, _ := searchSource.Source()
+    queryJson, _ := json.MarshalIndent(source, "", "  ")
+    query = string(queryJson)
+    searchService = svc.Client.Search().SearchSource(searchSource)
+  } else {
+    query = opt.Query
+    searchService = svc.Client.Search().Source(query)
+  }
+  return Report{
+    Query: query,
+    Html:  generator.GetReportHtml(searchService),
+  }
+}
+
+func (r ReportGenerator) BuildQuery() *elastic.SearchSource {
+  var searchSource *elastic.SearchSource
+  var query elastic.Query
+  if r.Opt.Label == "" {
+    log.Println("No label, using default query")
+    query = elastic.NewMatchAllQuery()
+  } else {
+    query, _ = r.Svc.GetQueryFromLabel(r.Opt.Label, r.Opt.Starred, r.Opt.Size)
+  }
+  searchSource = elastic.NewSearchSource().Query(query).From(0).Size(r.Opt.Size)
+  return searchSource
+}
+
+func (r ReportGenerator) GetReportHtml(ss *elastic.SearchService) template.HTML {
+  var reportBuffer bytes.Buffer
+  Render(r.Svc, &reportBuffer, ss, r.Opt.InboxUrl)
+  return template.HTML(reportBuffer.String())
+}
+
+func Render(s *store.Service, wr io.Writer, req *elastic.SearchService, inboxUrl string) {
   gmailUrl := func(threadId string) string {
     return fmt.Sprintf("%v#inbox/%v", inboxUrl, threadId)
   }
@@ -53,6 +101,7 @@ func Run(s *store.Service, wr io.Writer, req *elastic.SearchService, inboxUrl st
     return fmt.Sprint("#", id)
   }
 
+  // TODO: Return error or HTML that indicates a problem
   messages, err := s.GetMessages(req)
   if err != nil {
     log.Println("Exiting due to error")
@@ -69,7 +118,7 @@ func Run(s *store.Service, wr io.Writer, req *elastic.SearchService, inboxUrl st
         "jump":     jump,
       }).
       ParseFiles("templates/report.html"))
-  data := Data{
+  data := HtmlData{
     ChartJson: template.HTML(chartJson),
     Messages:  messages,
   }
@@ -78,7 +127,7 @@ func Run(s *store.Service, wr io.Writer, req *elastic.SearchService, inboxUrl st
   }
 }
 
-func getChartData(messages []*gmailservice.Message) []BarData {
+func getChartData(messages []*gmailservice.Message) Chart {
   if len(messages) == 0 {
     return nil
   }
@@ -108,49 +157,4 @@ func getChartData(messages []*gmailservice.Message) []BarData {
 
   }
   return chart
-}
-
-type Report struct {
-  Html template.HTML
-  Query string
-  ChartData string // Maybe for later; right now this can be part of html
-}
-
-func GetReport(opt QueryOptions, client *store.Service) (Report) {
-  var query string
-  if opt.Query == "" {
-    query = QueryStringFromLabel(client, opt)
-  } else {
-    query = opt.Query
-  }
-
-  reportHtml := template.HTML(GetReportHtml(client, query, opt.Size, opt.InboxUrl))
-  return Report{
-    Query: query,
-    Html: reportHtml,
-  }
-}
-
-func GetReportHtml(client *store.Service, query string, size int, inboxUrl string) string {
-  // TODO: Change this to return html (which is limited to size), the chart data which should be everything within
-  // reason, and the query JSON.
-  // Also, move this to report.
-  var req *elastic.SearchService
-  req = client.GetRawQuery(query, size)
-  var reportBuffer bytes.Buffer
-  Run(client, &reportBuffer, req, inboxUrl)
-  return reportBuffer.String()
-}
-
-func QueryStringFromLabel(client *store.Service, opt QueryOptions) string {
-  if opt.Label == "" {
-    log.Println("No label")
-    return ""
-  }
-  boolQuery, _ := client.GetQueryFromLabel(opt.Label, opt.Starred, opt.Size)
-  source, _ := boolQuery.Source()
-  q, _ := json.MarshalIndent(source, "  ", "  ")
-  query := fmt.Sprintf("{\n  \"query\": %s\n}", q)
-  log.Println("Query:", query)
-  return query
 }

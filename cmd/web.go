@@ -48,7 +48,6 @@ func startServer() {
       size = 100
     }
 
-    // TODO: Move query here; record contains all the info needed for report
     opt := report.QueryOptions{
       StartDate:     r.FormValue("startDate"),
       EndDate:       r.FormValue("endDate"),
