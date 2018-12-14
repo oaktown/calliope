@@ -6,7 +6,6 @@ import (
   "fmt"
   "github.com/oaktown/calliope/gmailservice"
   "github.com/oaktown/calliope/store"
-  "github.com/olivere/elastic"
   "html/template"
   "io"
   "log"
@@ -52,47 +51,25 @@ func GetReport(opt QueryOptions, svc *store.Service) Report {
     Opt: opt,
     Svc: svc,
   }
-
-  // TODO: Handle errors
-  var query string
-  var searchService *elastic.SearchService
-  if opt.Query == "" {
-    var searchSource *elastic.SearchSource
-    searchSource = generator.BuildQuery()
-    source, _ := searchSource.Source()
-    queryJson, _ := json.MarshalIndent(source, "", "  ")
-    query = string(queryJson)
-    searchService = svc.Client.Search().SearchSource(searchSource)
+  var messageSearch store.MessageSearch
+  if opt.Query != "" {
+    messageSearch = svc.NewRawMessageSearch(opt.Query)
   } else {
-    query = opt.Query
-    searchService = svc.Client.Search().Source(query)
+    messageSearch = svc.NewStructuredMessageSearch().Label(opt.Label).StartDate(opt.StartDate).EndDate(opt.EndDate).Participants(opt.EndDate).Size(opt.Size)
   }
   return Report{
-    Query: query,
-    Html:  generator.GetReportHtml(searchService),
+    Query: messageSearch.QueryString(),
+    Html:  generator.GetReportHtml(messageSearch),
   }
 }
 
-func (r ReportGenerator) BuildQuery() *elastic.SearchSource {
-  var searchSource *elastic.SearchSource
-  var query elastic.Query
-  if r.Opt.Label == "" {
-    log.Println("No label, using default query")
-    query = elastic.NewMatchAllQuery()
-  } else {
-    query, _ = r.Svc.GetQueryFromLabel(r.Opt.Label, r.Opt.Starred, r.Opt.Size)
-  }
-  searchSource = elastic.NewSearchSource().Query(query).From(0).Size(r.Opt.Size)
-  return searchSource
-}
-
-func (r ReportGenerator) GetReportHtml(ss *elastic.SearchService) template.HTML {
+func (r ReportGenerator) GetReportHtml(messageSearch store.MessageSearch) template.HTML {
   var reportBuffer bytes.Buffer
-  Render(r.Svc, &reportBuffer, ss, r.Opt.InboxUrl)
+  Render(r.Svc, &reportBuffer, messageSearch, r.Opt.InboxUrl)
   return template.HTML(reportBuffer.String())
 }
 
-func Render(s *store.Service, wr io.Writer, req *elastic.SearchService, inboxUrl string) {
+func Render(s *store.Service, wr io.Writer, messageSearch store.MessageSearch, inboxUrl string) {
   gmailUrl := func(threadId string) string {
     return fmt.Sprintf("%v#inbox/%v", inboxUrl, threadId)
   }
@@ -102,7 +79,7 @@ func Render(s *store.Service, wr io.Writer, req *elastic.SearchService, inboxUrl
   }
 
   // TODO: Return error or HTML that indicates a problem
-  messages, err := s.GetMessages(req)
+  messages, err := messageSearch.Do()
   if err != nil {
     log.Println("Exiting due to error")
     return
