@@ -4,9 +4,9 @@ import (
   "encoding/json"
   "errors"
   "fmt"
-  "github.com/oaktown/calliope/gmailservice"
   "github.com/olivere/elastic"
   "golang.org/x/net/context"
+  "google.golang.org/api/gmail/v1"
   "log"
   "reflect"
   "time"
@@ -17,6 +17,27 @@ type Service struct {
   Ctx         context.Context
   MailIndex   string
   LabelsIndex string
+}
+
+type Message struct {
+  Id                  string
+  Url                 string
+  ThreadId            string
+  LabelIds            []string
+  Date                time.Time
+  DownloadedStartedAt time.Time
+  To                  string
+  Cc                  string
+  From                string
+  Subject             string
+  Snippet             string
+  Body                string
+  Source              gmail.Message
+}
+
+type Label struct {
+  Id   string
+  Name string
 }
 
 const MailIndex = "mail"
@@ -80,10 +101,10 @@ func (s *Service) saveDoc(index string, id string, json string) error {
 
 type LabelsDoc struct {
   Id     string
-  Labels []*gmailservice.Label
+  Labels []*Label
 }
 
-func (s *Service) SaveLabels(labels []*gmailservice.Label) error {
+func (s *Service) SaveLabels(labels []*Label) error {
   doc := LabelsDoc{
     Id:     "labels",
     Labels: labels,
@@ -97,7 +118,7 @@ func (s *Service) SaveLabels(labels []*gmailservice.Label) error {
   return nil
 }
 
-func (s *Service) GetLabels() ([]*gmailservice.Label, error) {
+func (s *Service) GetLabels() ([]*Label, error) {
   var doc LabelsDoc
   query := elastic.NewTermQuery("Id", "labels")
   result, _ := s.Client.Search().
@@ -112,7 +133,7 @@ func (s *Service) GetLabels() ([]*gmailservice.Label, error) {
   return doc.Labels, nil
 }
 
-func (s *Service) SaveMessage(data gmailservice.Message) error {
+func (s *Service) SaveMessage(data Message) error {
   log.Println("saving Message ID: ", data.Id)
   messageJson, _ := json.MarshalIndent(data, "", "\t")
   if err := s.saveDoc(MailIndex, data.Id, string(messageJson)); err != nil {
@@ -137,8 +158,7 @@ func (s *Service) GetQueryFromLabel(labelName string, starred bool, size int) (*
   return query, nil
 }
 
-func (s *Service) GetRawQuery (queryStr string, size int) *elastic.SearchService {
-  fmt.Printf("GetRawQuery: %s, size: %d\n\n", queryStr, size)
+func (s *Service) GetRawQuery(queryStr string, size int) *elastic.SearchService {
   return s.Client.Search().Index(s.MailIndex).Source(queryStr).Size(size)
 }
 
@@ -160,16 +180,16 @@ func (s *Service) FindLabelId(labelName string) (string, error) {
   return labelId, nil
 }
 
-func (s *Service) GetMessages(req *elastic.SearchService) ([]*gmailservice.Message, error) {
-  var messages []*gmailservice.Message
+func (s *Service) GetMessages(req *elastic.SearchService) ([]*Message, error) {
+  var messages []*Message
   result, err := req.Do(s.Ctx)
   if err != nil {
     log.Println("Couldn't search. Exiting due to: ", err)
     return nil, err
   }
-  var messageForReflect gmailservice.Message
+  var messageForReflect Message
   for _, m := range result.Each(reflect.TypeOf(messageForReflect)) {
-    message := m.(gmailservice.Message)
+    message := m.(Message)
     messages = append(messages, &message)
   }
   log.Println("Messages found: ", len(messages))

@@ -1,12 +1,8 @@
 package web
 
 import (
-  "bytes"
-  "encoding/json"
-  "fmt"
   "github.com/oaktown/calliope/report"
   "github.com/oaktown/calliope/store"
-  "github.com/olivere/elastic"
   "html/template"
   "log"
   "net/http"
@@ -15,6 +11,7 @@ import (
 
 type Data struct {
   Title       string
+  Fields      report.QueryOptions
   Size        int
   Query       string
   Report      template.HTML
@@ -23,21 +20,16 @@ type Data struct {
   TotalEmails int64
 }
 
-type Options struct {
-  Label   string
-  InboxUrl     string
-  Size    int
-  Starred bool
-}
+func ShowHomePage(client *store.Service, w http.ResponseWriter, opt report.QueryOptions) {
+  rpt := report.GetReport(opt, client)
 
-func ShowHomePage(client *store.Service, query string, w http.ResponseWriter, opt Options) {
+  // TODO: maybe move this to another page and add a link
   stats, _ := client.GetStats()
-  reportHtml := template.HTML(getReportHtml(client, query, opt.Size, opt.InboxUrl))
   data := Data{
     Title:       "Calliope Email Report",
-    Size:        opt.Size,
-    Query:       query,
-    Report:      reportHtml,
+    Fields:      opt,
+    Query:       rpt.Query,
+    Report:      rpt.Html,
     Earliest:    stats.Earliest,
     Latest:      stats.Latest,
     TotalEmails: stats.Total,
@@ -48,21 +40,4 @@ func ShowHomePage(client *store.Service, query string, w http.ResponseWriter, op
   if err := t.ExecuteTemplate(w, "layout", data); err != nil {
     log.Println("Error occurred while executing template: ", err)
   }
-}
-
-func getReportHtml(client *store.Service, query string, size int, inboxUrl string) string {
-  var req *elastic.SearchService
-  req = client.GetRawQuery(query, size)
-  var reportBuffer bytes.Buffer
-  report.Run(client, &reportBuffer, req, inboxUrl)
-  return reportBuffer.String()
-}
-
-func QueryStringFromLabel(client *store.Service, opt Options) string {
-  boolQuery, _ := client.GetQueryFromLabel(opt.Label, opt.Starred, opt.Size)
-  source, _ := boolQuery.Source()
-  q, _ := json.MarshalIndent(source, "  ", "  ")
-  query := fmt.Sprintf("{\n  \"query\": %s\n}", q)
-  fmt.Println("Query using label: ", query)
-  return query
 }

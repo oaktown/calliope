@@ -3,25 +3,19 @@ package cmd
 import (
   "fmt"
   "github.com/oaktown/calliope/misc"
+  "github.com/oaktown/calliope/report"
   "github.com/oaktown/calliope/web"
   "github.com/spf13/cobra"
   "log"
   "net/http"
+  "strconv"
 )
 
 var port string
-var allMessages bool
-var options = web.Options{}
 
 func init() {
   rootCmd.AddCommand(webCmd)
   webCmd.Flags().StringVarP(&port, "port", "p", "8080", "Port to run web server on.")
-  webCmd.Flags().StringVarP(&options.Label, "label", "l", "",
-    "Report for emails with this label (required).")
-  webCmd.MarkFlagRequired("label")
-  webCmd.Flags().BoolVarP(&allMessages, "all-messages", "A", false, "By default, we only query for starred messages. With this flag, we get all messages for the label whether they are starred or not.")
-  webCmd.Flags().IntVarP(&options.Size, "size", "s", 1000, "The max number of results to return from a search. Defaults to 1000.")
-  webCmd.Flags().StringVarP(&options.InboxUrl, "url", "U", "https://mail.google.com/mail/", "Url for gmail (useful if you are logged into multiple accounts).")
 }
 
 var webCmd = &cobra.Command{
@@ -29,30 +23,52 @@ var webCmd = &cobra.Command{
   Short: "Start web server",
   Long:  `Starts up the Calliope web app.`,
   Run: func(cmd *cobra.Command, args []string) {
-    options.Starred = !allMessages
-    startServer(options)
+    startServer()
   },
 }
 
-func startServer(opt web.Options) {
-  client := misc.GetStoreClient()
-  initialQuery := true
-
+func startServer() {
   http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
     http.ServeFile(w, r, "images/email_monster_Uxt_icon.ico")
   })
 
   http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-    var query string
-
-    if initialQuery {
-      query = web.QueryStringFromLabel(client, opt)
-      initialQuery = false
-    } else {
-      query = r.FormValue("query")
+    log.Println("Request path:", r.URL.Path)
+    client := misc.GetStoreClient()
+    var sortField string
+    if sortField = r.FormValue("sort"); sortField == "" {
+      sortField = "Date"
+    }
+    inboxUrl := r.FormValue("gmailurl")
+    if inboxUrl == "" {
+      inboxUrl = "https://mail.google.com/mail/"
+    }
+    size, err := strconv.Atoi(r.FormValue("size"))
+    if err != nil {
+      size = 100
     }
 
-    web.ShowHomePage(client, query, w, opt)
+    var timezone string
+    if timezone = r.FormValue("timezone"); timezone == "" {
+      timezone = "-0800" // Default to PST
+    }
+
+    opt := report.QueryOptions{
+      StartDate:     r.FormValue("startDate"),
+      EndDate:       r.FormValue("endDate"),
+      Timezone:      timezone,
+      Participants:  r.FormValue("participants"),
+      Label:         r.FormValue("label"),
+      Starred:       r.FormValue("starred") == "true",
+      InboxUrl:      inboxUrl,
+      Size:          size,
+      SortField:     sortField,
+      SortAscending: r.FormValue("ascending") == "true",
+      Query:         r.FormValue("query"),
+    }
+    log.Printf("options: %+v\n", opt)
+
+    web.ShowHomePage(client, w, opt)
   })
 
   fmt.Printf("Starting web server: http://localhost:%s/\n\n", port)

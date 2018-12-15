@@ -17,12 +17,62 @@
     <div class="search-form">
         <form action="/" method="get">
             <div>
-                <label for="query">Query:</label><br>
-                <textarea rows="20" cols="120" name="query">{{.Query}}</textarea>
+                <label for="gmailurl">Gmail URL prefix:</label><br>
+                <input name="gmailurl" placeholder="gmailurl" value="{{.Fields.InboxUrl}}">
+            </div>
+            <div>
+                <label for="participants">Participants (applies to From:, To:, and CC:):</label><br>
+                <input name="participants" value="{{.Fields.Participants}}">
+            </div>
+            <div>
+                <label for="startDate">Start date ("YYYY-MM-DD"):</label><br>
+                <input name="startDate" value="{{.Fields.StartDate}}">
+            </div>
+            <div>
+                <label for="endDate">End date ("YYYY-MM-DD"):</label><br>
+                <input name="endDate" value="{{.Fields.EndDate}}">
+            </div>
+            <div>
+                <label for="timezone">Time zone (e.g. -0800 for PST):</label><br>
+                <input name="timezone" value="{{.Fields.Timezone}}">
+            </div>
+
+            <div>
+                <label for="label">Label:</label><br>
+                <input name="label" value="{{.Fields.Label}}">
+            </div>
+            <div>
+                <label for="starred">Starred only:</label><br>
+                <input type="checkbox" name="starred" value="true" {{if .Fields.Starred}}checked{{end}}>
+            </div>
+            <div>
+                <label for="sort">Sort field:</label><br>
+                <input name="sort" value="{{.Fields.SortField}}">
+            </div>
+            <div>
+                <label for="ascending">Ascending:</label><br>
+                <input type="checkbox" name="ascending" value="true" {{if .Fields.SortAscending}}checked{{end}}>
             </div>
             <div>
                 <label for="size">Size:</label><br>
-                <input name="size" placeholder="size" value="{{.Size}}">
+                <input name="size" value="{{.Fields.Size}}">
+            </div>
+            <div>
+                <input type="submit">
+            </div>
+        </form>
+
+            <div>
+                <p>OR</p>
+            </div>
+        <form action="/" method="get">
+            <div>
+                <label for="gmailurl">Gmail URL prefix:</label><br>
+                <input name="gmailurl" placeholder="gmailurl" value="https://mail.google.com/mail/">
+            </div>
+            <div>
+                <label for="query">Query:</label><br>
+                <textarea rows="12" cols="120" name="query">{{.Query}}</textarea>
             </div>
             <div>
                 <input type="submit" value="submit">

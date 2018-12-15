@@ -30,7 +30,7 @@ var downloadCmd = &cobra.Command{
   },
 }
 
-func reader(s *store.Service, messageChannel <-chan *gmailservice.Message, maxWorkers int) {
+func reader(s *store.Service, messageChannel <-chan *store.Message, maxWorkers int) {
   workers := make(chan bool, maxWorkers)
   var savedMessages int64
   for message := range messageChannel { // reads from channel until it's closed
