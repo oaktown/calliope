@@ -65,8 +65,7 @@ func (s StructuredMessageSearch) Label(labelName string) StructuredMessageSearch
   }
   labelQuery := elastic.NewTermQuery("LabelIds.keyword", labelId)
   query := s.newOrExistingQuery()
-  s.query = query.Must(labelQuery)
-  return s
+  return s.updateQuery(query.Must(labelQuery))
 }
 
 func (s StructuredMessageSearch) Starred(starred bool) StructuredMessageSearch {
@@ -75,8 +74,7 @@ func (s StructuredMessageSearch) Starred(starred bool) StructuredMessageSearch {
   }
   query := s.newOrExistingQuery()
   starredQuery := elastic.NewTermQuery("LabelIds.keyword", "STARRED")
-  s.query = query.Must(starredQuery)
-  return s
+  return s.updateQuery(query.Must(starredQuery))
 }
 
 func (s StructuredMessageSearch) Participants(participants string) StructuredMessageSearch {
@@ -89,8 +87,7 @@ func (s StructuredMessageSearch) Participants(participants string) StructuredMes
     mm := elastic.NewMultiMatchQuery(email, "From", "To", "Cc").Type("cross_fields").Operator("and")
     query = query.Must(mm)
   }
-  s.query = query
-  return s
+  return s.updateQuery(query)
 }
 
 func (s StructuredMessageSearch) DateRange(d1, d2 string) StructuredMessageSearch {
@@ -110,22 +107,16 @@ func (s StructuredMessageSearch) DateRange(d1, d2 string) StructuredMessageSearc
 
   if endErr == nil {
     // Add a day to account for hours after midnight
-    rangeQuery.Lte(endDate.AddDate(0,0,1))
+    rangeQuery.Lte(endDate.AddDate(0, 0, 1))
   }
 
-  s.query = query.Must(rangeQuery)
-
-  return s
-}
-
-func (s StructuredMessageSearch) EndDate(endDate string) StructuredMessageSearch {
-  return s
+  return s.updateQuery(query.Must(rangeQuery))
 }
 
 func (s StructuredMessageSearch) Size(size int) StructuredMessageSearch {
   searchSource := s.getSearchSource()
   s.searchSource = searchSource.Size(size)
-  s.searchService = s.svc.Client.Search().SearchSource(s.searchSource)
+  s.searchService = s.getSearchService()
   return s
 }
 
@@ -159,4 +150,17 @@ func (s StructuredMessageSearch) getSearchSource() *elastic.SearchSource {
   }
   searchSource := elastic.NewSearchSource().Query(query)
   return searchSource
+}
+
+func (s StructuredMessageSearch) updateQuery(query *elastic.BoolQuery) StructuredMessageSearch {
+  // When query is updated, searchSource and searchService need to be updated, too.
+  s.query = query
+  s.searchSource = s.getSearchSource()
+  s.searchService = s.getSearchService()
+  return s
+}
+
+func (s StructuredMessageSearch) getSearchService() *elastic.SearchService {
+  ss := s.svc.Client.Search().SearchSource(s.searchSource)
+  return ss
 }
