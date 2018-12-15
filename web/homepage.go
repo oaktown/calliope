@@ -8,28 +8,35 @@ import (
   "log"
   "net/http"
   "strconv"
-  "time"
 )
 
-type Data struct {
+type HomepageData struct {
   Title       string
   Fields      report.QueryOptions
   Size        int
   Query       string
   Report      template.HTML
-  Earliest    time.Time
-  Latest      time.Time
-  TotalEmails int64
+}
+
+type Homepage struct {
+  r   *http.Request
+  w   http.ResponseWriter
+  svc *store.Service
 }
 
 func ShowHomepage(r *http.Request, w http.ResponseWriter) {
-  formFields := getHomepageFormFields(r)
-  client := misc.GetStoreClient()
-  renderHomepage(client, w, formFields)
+  h := Homepage{
+    r:   r,
+    w:   w,
+    svc: misc.GetStoreClient(),
+  }
+  formFields := h.getFormFields()
+  h.render(formFields)
 }
 
-func getHomepageFormFields(r *http.Request) report.QueryOptions {
+func (h Homepage) getFormFields() report.QueryOptions {
   var sortField string
+  r := h.r
   if sortField = r.FormValue("sort"); sortField == "" {
     sortField = "Date"
   }
@@ -61,24 +68,19 @@ func getHomepageFormFields(r *http.Request) report.QueryOptions {
   return opt
 }
 
-func renderHomepage(client *store.Service, w http.ResponseWriter, opt report.QueryOptions) {
-  rpt := report.GetReport(opt, client)
+func (h Homepage) render(opt report.QueryOptions) {
+  rpt := report.GetReport(opt, h.svc)
 
-  // TODO: maybe move this to another page and add a link
-  stats, _ := client.GetStats()
-  data := Data{
+  data := HomepageData{
     Title:       "Calliope Email Report",
     Fields:      opt,
     Query:       rpt.Query,
     Report:      rpt.Html,
-    Earliest:    stats.Earliest,
-    Latest:      stats.Latest,
-    TotalEmails: stats.Total,
   }
 
-  t := template.Must(template.ParseFiles("templates/layout.html", "templates/web-ui.html"))
+  t := template.Must(template.ParseFiles("templates/layout.html", "templates/homepage.html"))
 
-  if err := t.ExecuteTemplate(w, "layout", data); err != nil {
-    log.Println("Error occurred while executing template: ", err)
+  if err := t.ExecuteTemplate(h.w, "layout", data); err != nil {
+    log.Println("Error occurred while executing homepage template: ", err)
   }
 }

@@ -29,6 +29,10 @@ func startServer() {
     http.ServeFile(w, r, "images/email_monster_Uxt_icon.ico")
   })
 
+  http.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+    web.ShowStats(r, w)
+  })
+
   http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
     if r.URL.Path == "/" {
       web.ShowHomepage(r, w)
