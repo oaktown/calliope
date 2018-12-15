@@ -2,6 +2,7 @@ package store
 
 import (
   "encoding/json"
+  "fmt"
   "github.com/olivere/elastic"
   "strings"
   "time"
@@ -90,10 +91,10 @@ func (s StructuredMessageSearch) Participants(participants string) StructuredMes
   return s.updateQuery(query)
 }
 
-func (s StructuredMessageSearch) DateRange(d1, d2 string) StructuredMessageSearch {
+func (s StructuredMessageSearch) DateRange(d1, d2, tz string) StructuredMessageSearch {
   query := s.newOrExistingQuery()
-  startDate, startErr := time.Parse("2006-01-02", d1)
-  endDate, endErr := time.Parse("2006-01-02", d2)
+  startDate, startErr := time.Parse("2006-01-02 15:04:05 -0700", fmt.Sprintf("%s 00:00:00 %s", d1, tz))
+  endDate, endErr := time.Parse("2006-01-02 15:04:05 -0700", fmt.Sprintf("%s 00:00:00 %s", d2, tz))
   if startErr != nil && endErr != nil {
     // No valid date strings were passed in (includes case of two empty strings)
     return s

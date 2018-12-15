@@ -18,6 +18,7 @@ type Report struct {
 type QueryOptions struct {
   StartDate     string
   EndDate       string
+  Timezone      string
   Participants  string
   Label         string
   InboxUrl      string
@@ -56,7 +57,7 @@ func GetReport(opt QueryOptions, svc *store.Service) Report {
   } else {
     messageSearch = svc.NewStructuredMessageSearch().
       Label(opt.Label).
-      DateRange(opt.StartDate, opt.EndDate).
+      DateRange(opt.StartDate, opt.EndDate, opt.Timezone).
       Participants(opt.Participants).
       Size(opt.Size).
       Sort(opt.SortField, opt.SortAscending)

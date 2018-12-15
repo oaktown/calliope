@@ -48,9 +48,15 @@ func startServer() {
       size = 100
     }
 
+    var timezone string
+    if timezone = r.FormValue("timezone"); timezone == "" {
+      timezone = "-0800" // Default to PST
+    }
+
     opt := report.QueryOptions{
       StartDate:     r.FormValue("startDate"),
       EndDate:       r.FormValue("endDate"),
+      Timezone:      timezone,
       Participants:  r.FormValue("participants"),
       Label:         r.FormValue("label"),
       Starred:       r.FormValue("starred") == "true",
@@ -58,7 +64,7 @@ func startServer() {
       Size:          size,
       SortField:     sortField,
       SortAscending: r.FormValue("ascending") == "true",
-      Query: r.FormValue("query"),
+      Query:         r.FormValue("query"),
     }
     log.Printf("options: %+v\n", opt)
 
