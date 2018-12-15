@@ -13,16 +13,16 @@ import (
 type Message struct {
   Id                  string
   Url                 string
+  ThreadId            string
+  LabelIds            []string
   Date                time.Time
   DownloadedStartedAt time.Time
   To                  string
   Cc                  string
   From                string
   Subject             string
-  Body                string
-  ThreadId            string
-  LabelIds            []string
   Snippet             string
+  Body                string
   Source              gmail.Message
 }
 

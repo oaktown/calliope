@@ -138,7 +138,6 @@ func (s *Service) GetQueryFromLabel(labelName string, starred bool, size int) (*
 }
 
 func (s *Service) GetRawQuery (queryStr string, size int) *elastic.SearchService {
-  fmt.Printf("GetRawQuery: %s, size: %d\n\n", queryStr, size)
   return s.Client.Search().Index(s.MailIndex).Source(queryStr).Size(size)
 }
 

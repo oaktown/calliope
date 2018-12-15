@@ -65,6 +65,9 @@ func Run(s *store.Service, wr io.Writer, req *elastic.SearchService, inboxUrl st
 }
 
 func getChartData(messages []*gmailservice.Message) []BarData {
+  if len(messages) == 0 {
+    return nil
+  }
   data := make(map[string]int)
   first := messages[0].Date
   last := messages[0].Date
@@ -82,7 +85,7 @@ func getChartData(messages []*gmailservice.Message) []BarData {
     data[dateString] = data[dateString] + 1
   }
   chart := make([]BarData, 0, len(messages))
-  for d := first; d.Before(last.AddDate(0,0,1)); d = d.AddDate(0, 0, 1) {
+  for d := first; d.Before(last.AddDate(0, 0, 1)); d = d.AddDate(0, 0, 1) {
     dateString := d.Format("2006-01-02")
     chart = append(chart, BarData{
       Date:     dateString,

@@ -7,21 +7,15 @@ import (
   "github.com/spf13/cobra"
   "log"
   "net/http"
+  "strconv"
 )
 
 var port string
 var allMessages bool
-var options = web.Options{}
 
 func init() {
   rootCmd.AddCommand(webCmd)
   webCmd.Flags().StringVarP(&port, "port", "p", "8080", "Port to run web server on.")
-  webCmd.Flags().StringVarP(&options.Label, "label", "l", "",
-    "Report for emails with this label (required).")
-  webCmd.MarkFlagRequired("label")
-  webCmd.Flags().BoolVarP(&allMessages, "all-messages", "A", false, "By default, we only query for starred messages. With this flag, we get all messages for the label whether they are starred or not.")
-  webCmd.Flags().IntVarP(&options.Size, "size", "s", 1000, "The max number of results to return from a search. Defaults to 1000.")
-  webCmd.Flags().StringVarP(&options.InboxUrl, "url", "U", "https://mail.google.com/mail/", "Url for gmail (useful if you are logged into multiple accounts).")
 }
 
 var webCmd = &cobra.Command{
@@ -29,29 +23,51 @@ var webCmd = &cobra.Command{
   Short: "Start web server",
   Long:  `Starts up the Calliope web app.`,
   Run: func(cmd *cobra.Command, args []string) {
-    options.Starred = !allMessages
-    startServer(options)
+    startServer()
   },
 }
 
-func startServer(opt web.Options) {
-  client := misc.GetStoreClient()
-  initialQuery := true
-
+func startServer() {
   http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
     http.ServeFile(w, r, "images/email_monster_Uxt_icon.ico")
   })
 
   http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-    var query string
+    log.Println("Request path:", r.URL.Path)
 
-    if initialQuery {
+    client := misc.GetStoreClient()
+    label := r.FormValue("label")
+    fmt.Println("starred:", r.FormValue("starred"))
+    starred := r.FormValue("starred") == "true"
+    inboxUrl := r.FormValue("gmailurl")
+    sortField := r.FormValue("sort")
+    sortAscending := r.FormValue("ascending") == "true"
+    if inboxUrl == "" {
+      inboxUrl = "https://mail.google.com/mail/"
+    }
+    size, err := strconv.Atoi(r.FormValue("size"))
+    if err != nil {
+      size = 100
+    }
+
+    opt := web.Options{
+      Label:         label,
+      Starred:       starred,
+      InboxUrl:      inboxUrl,
+      Size:          size,
+      SortField:     sortField,
+      SortAscending: sortAscending,
+    }
+
+    log.Printf("options: %+v\n", opt)
+    var query string
+    if query = r.FormValue("query"); query == "" {
       query = web.QueryStringFromLabel(client, opt)
-      initialQuery = false
     } else {
       query = r.FormValue("query")
     }
 
+    log.Println("Query (web.go):", query)
     web.ShowHomePage(client, query, w, opt)
   })
 

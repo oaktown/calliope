@@ -15,6 +15,7 @@ import (
 
 type Data struct {
   Title       string
+  Fields      Options
   Size        int
   Query       string
   Report      template.HTML
@@ -23,11 +24,22 @@ type Data struct {
   TotalEmails int64
 }
 
+//// Create your search request
+//ss := elastic.NewSearchSource().Query(elastic.NewMatchAllQuery()).From(0).Size(10)
+//data, _ := json.Marshal(ss.Source())
+//fmt.Printf("%s", string(data))
+//...
+//// Use ss in search
+//res, err := client.Search().SearchSource(ss).Do()
+//...
 type Options struct {
-  Label   string
-  InboxUrl     string
-  Size    int
-  Starred bool
+  Label         string
+  InboxUrl      string
+  Size          int
+  Starred       bool
+  SortField     string
+  SortAscending bool
+  Query         string
 }
 
 func ShowHomePage(client *store.Service, query string, w http.ResponseWriter, opt Options) {
@@ -35,7 +47,7 @@ func ShowHomePage(client *store.Service, query string, w http.ResponseWriter, op
   reportHtml := template.HTML(getReportHtml(client, query, opt.Size, opt.InboxUrl))
   data := Data{
     Title:       "Calliope Email Report",
-    Size:        opt.Size,
+    Fields:      opt,
     Query:       query,
     Report:      reportHtml,
     Earliest:    stats.Earliest,
@@ -58,11 +70,22 @@ func getReportHtml(client *store.Service, query string, size int, inboxUrl strin
   return reportBuffer.String()
 }
 
+//
+//func (q *Query) FromLabel(client *store.Service, opt Options) *Query {
+//  query, _ := client.GetQueryFromLabel(opt.Label, opt.Starred, opt.Size)
+//  q.Q = query
+//return q
+//}
+
 func QueryStringFromLabel(client *store.Service, opt Options) string {
+  if opt.Label == "" {
+    log.Println("No label")
+    return ""
+  }
   boolQuery, _ := client.GetQueryFromLabel(opt.Label, opt.Starred, opt.Size)
   source, _ := boolQuery.Source()
   q, _ := json.MarshalIndent(source, "  ", "  ")
   query := fmt.Sprintf("{\n  \"query\": %s\n}", q)
-  fmt.Println("Query using label: ", query)
+  log.Println("Query:", query)
   return query
 }
