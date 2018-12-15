@@ -23,8 +23,12 @@ type Data struct {
 }
 
 func ShowHomepage(r *http.Request, w http.ResponseWriter) {
-  log.Println("Request path:", r.URL.Path)
+  formFields := getHomepageFormFields(r)
   client := misc.GetStoreClient()
+  renderHomepage(client, w, formFields)
+}
+
+func getHomepageFormFields(r *http.Request) report.QueryOptions {
   var sortField string
   if sortField = r.FormValue("sort"); sortField == "" {
     sortField = "Date"
@@ -54,8 +58,7 @@ func ShowHomepage(r *http.Request, w http.ResponseWriter) {
     SortAscending: r.FormValue("ascending") == "true",
     Query:         r.FormValue("query"),
   }
-  log.Printf("options: %+v\n", opt)
-  renderHomepage(client, w, opt)
+  return opt
 }
 
 func renderHomepage(client *store.Service, w http.ResponseWriter, opt report.QueryOptions) {

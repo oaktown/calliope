@@ -30,7 +30,11 @@ func startServer() {
   })
 
   http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-    web.ShowHomepage(r, w)
+    if r.URL.Path == "/" {
+      web.ShowHomepage(r, w)
+    } else {
+      fmt.Fprint(w, "Nothing to see here.")
+    }
   })
 
   fmt.Printf("Starting web server: http://localhost:%s/\n\n", port)
