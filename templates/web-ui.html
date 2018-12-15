@@ -25,11 +25,11 @@
                 <input name="participants" value="{{.Fields.Participants}}">
             </div>
             <div>
-                <label for="startDate">Start date:</label><br>
+                <label for="startDate">Start date ("YYYY-MM-DD"):</label><br>
                 <input name="startDate" value="{{.Fields.StartDate}}">
             </div>
             <div>
-                <label for="endDate">End date:</label><br>
+                <label for="endDate">End date ("YYYY-MM-DD"):</label><br>
                 <input name="endDate" value="{{.Fields.EndDate}}">
             </div>
             <div>
@@ -46,7 +46,7 @@
             </div>
             <div>
                 <label for="ascending">Ascending:</label><br>
-                <input type="ascending" name="ascending" value="true" {{if .Fields.SortAscending}}checked{{end}}>
+                <input type="checkbox" name="ascending" value="true" {{if .Fields.SortAscending}}checked{{end}}>
             </div>
             <div>
                 <label for="size">Size:</label><br>

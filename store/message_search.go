@@ -3,6 +3,8 @@ package store
 import (
   "encoding/json"
   "github.com/olivere/elastic"
+  "strings"
+  "time"
 )
 
 type MessageSearch interface {
@@ -63,7 +65,7 @@ func (s StructuredMessageSearch) Label(labelName string) StructuredMessageSearch
   }
   labelQuery := elastic.NewTermQuery("LabelIds.keyword", labelId)
   query := s.newOrExistingQuery()
-  s.query  = query.Must(labelQuery)
+  s.query = query.Must(labelQuery)
   return s
 }
 
@@ -78,10 +80,41 @@ func (s StructuredMessageSearch) Starred(starred bool) StructuredMessageSearch {
 }
 
 func (s StructuredMessageSearch) Participants(participants string) StructuredMessageSearch {
+  if participants == "" {
+    return s
+  }
+  emails := strings.Split(participants, ",")
+  query := s.newOrExistingQuery()
+  for _, email := range emails {
+    mm := elastic.NewMultiMatchQuery(email, "From", "To", "Cc").Type("cross_fields").Operator("and")
+    query = query.Must(mm)
+  }
+  s.query = query
   return s
 }
 
-func (s StructuredMessageSearch) StartDate(startDate string) StructuredMessageSearch {
+func (s StructuredMessageSearch) DateRange(d1, d2 string) StructuredMessageSearch {
+  query := s.newOrExistingQuery()
+  startDate, startErr := time.Parse("2006-01-02", d1)
+  endDate, endErr := time.Parse("2006-01-02", d2)
+  if startErr != nil && endErr != nil {
+    // No valid date strings were passed in (includes case of two empty strings)
+    return s
+  }
+
+  rangeQuery := elastic.NewRangeQuery("Date")
+
+  if startErr == nil {
+    rangeQuery.Gte(startDate)
+  }
+
+  if endErr == nil {
+    // Add a day to account for hours after midnight
+    rangeQuery.Lte(endDate.AddDate(0,0,1))
+  }
+
+  s.query = query.Must(rangeQuery)
+
   return s
 }
 
@@ -89,27 +122,22 @@ func (s StructuredMessageSearch) EndDate(endDate string) StructuredMessageSearch
   return s
 }
 
-func (s StructuredMessageSearch) RawQuery(raw string) StructuredMessageSearch {
+func (s StructuredMessageSearch) Size(size int) StructuredMessageSearch {
+  searchSource := s.getSearchSource()
+  s.searchSource = searchSource.Size(size)
+  s.searchService = s.svc.Client.Search().SearchSource(s.searchSource)
   return s
 }
 
-func (s StructuredMessageSearch) Size(size int) StructuredMessageSearch {
-  // In addition to setting size, this is the method that sets searchSource and searchService
-  // TODO: This is the last thing called, so here we can determine if there is a search source; if not, then use match all query
-  // TODO:  size should be called on a different type than the others (to enforce order of callling; this needs to be last).
-  var query elastic.Query
-  if s.query == nil {
-    query = elastic.NewMatchAllQuery()
-  } else {
-    query = s.query
-  }
-  s.searchSource = elastic.NewSearchSource().Query(query).Size(size)
+func (s StructuredMessageSearch) Sort(field string, asc bool) StructuredMessageSearch {
+  searchSource := s.getSearchSource()
+  s.searchSource = searchSource.Sort(field, asc)
   s.searchService = s.svc.Client.Search().SearchSource(s.searchSource)
   return s
 }
 
 func (s StructuredMessageSearch) QueryString() string {
-  source, _ := s.searchSource.Source()
+  source, _ := s.getSearchSource().Source()
   queryJson, _ := json.MarshalIndent(source, "", "  ")
   query := string(queryJson)
   return query
@@ -117,4 +145,18 @@ func (s StructuredMessageSearch) QueryString() string {
 
 func (s StructuredMessageSearch) Do() ([]*Message, error) {
   return s.svc.GetMessages(s.searchService)
+}
+
+func (s StructuredMessageSearch) getSearchSource() *elastic.SearchSource {
+  if s.searchSource != nil {
+    return s.searchSource
+  }
+  var query elastic.Query
+  if s.query == nil {
+    query = elastic.NewMatchAllQuery()
+  } else {
+    query = s.query
+  }
+  searchSource := elastic.NewSearchSource().Query(query)
+  return searchSource
 }

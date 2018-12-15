@@ -54,7 +54,12 @@ func GetReport(opt QueryOptions, svc *store.Service) Report {
   if opt.Query != "" {
     messageSearch = svc.NewRawMessageSearch(opt.Query)
   } else {
-    messageSearch = svc.NewStructuredMessageSearch().Label(opt.Label).StartDate(opt.StartDate).EndDate(opt.EndDate).Participants(opt.EndDate).Size(opt.Size)
+    messageSearch = svc.NewStructuredMessageSearch().
+      Label(opt.Label).
+      DateRange(opt.StartDate, opt.EndDate).
+      Participants(opt.Participants).
+      Size(opt.Size).
+      Sort(opt.SortField, opt.SortAscending)
   }
   return Report{
     Query: messageSearch.QueryString(),
