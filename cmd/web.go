@@ -2,13 +2,10 @@ package cmd
 
 import (
   "fmt"
-  "github.com/oaktown/calliope/misc"
-  "github.com/oaktown/calliope/report"
   "github.com/oaktown/calliope/web"
   "github.com/spf13/cobra"
   "log"
   "net/http"
-  "strconv"
 )
 
 var port string
@@ -33,42 +30,7 @@ func startServer() {
   })
 
   http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-    log.Println("Request path:", r.URL.Path)
-    client := misc.GetStoreClient()
-    var sortField string
-    if sortField = r.FormValue("sort"); sortField == "" {
-      sortField = "Date"
-    }
-    inboxUrl := r.FormValue("gmailurl")
-    if inboxUrl == "" {
-      inboxUrl = "https://mail.google.com/mail/"
-    }
-    size, err := strconv.Atoi(r.FormValue("size"))
-    if err != nil {
-      size = 100
-    }
-
-    var timezone string
-    if timezone = r.FormValue("timezone"); timezone == "" {
-      timezone = "-0800" // Default to PST
-    }
-
-    opt := report.QueryOptions{
-      StartDate:     r.FormValue("startDate"),
-      EndDate:       r.FormValue("endDate"),
-      Timezone:      timezone,
-      Participants:  r.FormValue("participants"),
-      Label:         r.FormValue("label"),
-      Starred:       r.FormValue("starred") == "true",
-      InboxUrl:      inboxUrl,
-      Size:          size,
-      SortField:     sortField,
-      SortAscending: r.FormValue("ascending") == "true",
-      Query:         r.FormValue("query"),
-    }
-    log.Printf("options: %+v\n", opt)
-
-    web.ShowHomePage(client, w, opt)
+    web.ShowHomepage(r, w)
   })
 
   fmt.Printf("Starting web server: http://localhost:%s/\n\n", port)
