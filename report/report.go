@@ -1,6 +1,7 @@
 package report
 
 import (
+  "encoding/json"
   "fmt"
   "github.com/oaktown/calliope/gmailservice"
   "github.com/oaktown/calliope/store"
@@ -23,7 +24,7 @@ type BarData struct {
 }
 
 type Data struct {
-  ChartJson []BarData
+  ChartJson template.HTML
   Messages  []*gmailservice.Message
 }
 
@@ -44,7 +45,8 @@ func Run(s *store.Service, wr io.Writer, req *elastic.SearchService, inboxUrl st
     return
   }
 
-  chartJson := getChartData(messages)
+  chartData := getChartData(messages)
+  chartJson, _ := json.MarshalIndent(chartData, "", "  ")
 
   report := template.Must(
     template.New("report.html").
@@ -54,7 +56,7 @@ func Run(s *store.Service, wr io.Writer, req *elastic.SearchService, inboxUrl st
       }).
       ParseFiles("templates/report.html"))
   data := Data{
-    ChartJson: chartJson,
+    ChartJson: template.HTML(chartJson),
     Messages:  messages,
   }
   if err := report.Execute(wr, data); err != nil {
@@ -64,17 +66,29 @@ func Run(s *store.Service, wr io.Writer, req *elastic.SearchService, inboxUrl st
 
 func getChartData(messages []*gmailservice.Message) []BarData {
   data := make(map[string]int)
+  first := messages[0].Date
+  last := messages[0].Date
   for _, m := range messages {
-    date := m.Date.Format("2006-01-02")
-    data[date] = data[date] + 1
-  }
-  var chart []BarData
-  for d, n := range data {
-    chart = append(chart, BarData{
-      Date:     d,
-      Messages: n,
-    })
-  }
+    date := m.Date
 
+    if date.After(last) {
+      last = date
+    }
+    if date.Before(first) {
+      first = date
+    }
+
+    dateString := date.Format("2006-01-02")
+    data[dateString] = data[dateString] + 1
+  }
+  chart := make([]BarData, 0, len(messages))
+  for d := first; d.Before(last.AddDate(0,0,1)); d = d.AddDate(0, 0, 1) {
+    dateString := d.Format("2006-01-02")
+    chart = append(chart, BarData{
+      Date:     dateString,
+      Messages: data[dateString],
+    })
+
+  }
   return chart
 }
