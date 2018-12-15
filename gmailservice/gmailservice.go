@@ -3,6 +3,7 @@ package gmailservice
 import (
   "encoding/base64"
   "fmt"
+  "github.com/oaktown/calliope/store"
   "log"
   "strings"
   "time"
@@ -10,26 +11,10 @@ import (
   "google.golang.org/api/gmail/v1"
 )
 
-type Message struct {
-  Id                  string
-  Url                 string
-  ThreadId            string
-  LabelIds            []string
-  Date                time.Time
-  DownloadedStartedAt time.Time
-  To                  string
-  Cc                  string
-  From                string
-  Subject             string
-  Snippet             string
-  Body                string
-  Source              gmail.Message
-}
-
 type Downloader struct {
   SearchChan   chan *gmail.Message
-  MessageChan  chan *Message
-  M2           chan *Message
+  MessageChan  chan *store.Message
+  M2           chan *store.Message
   WorkersQueue chan bool
   MaxWorkers   int
   Svc          *gmail.Service
@@ -49,7 +34,7 @@ type Options struct {
 
 func New(svc *gmail.Service, options Options, maxWorkers int) Downloader {
   search := make(chan *gmail.Message)
-  message := make(chan *Message)
+  message := make(chan *store.Message)
   workers := make(chan bool, maxWorkers)
   return Downloader{
     SearchChan:   search,
@@ -71,24 +56,19 @@ func (d Downloader) NoNewWorkers() {
 }
 
 // Download everything that is requested in calliope generic Message format
-func Download(d Downloader) []*Label {
+func Download(d Downloader) []*store.Label {
   labels := DownloadLabels(d)
   go SearchMessages(d)
   go DownloadFullMessages(d)
   return labels
 }
 
-type Label struct {
-  Id   string
-  Name string
-}
-
-func DownloadLabels(d Downloader) []*Label {
+func DownloadLabels(d Downloader) []*store.Label {
   request := d.Svc.Users.Labels.List("me")
   response, _ := request.Do()
-  var labels []*Label
+  var labels []*store.Label
   for _, l := range response.Labels {
-    label := &Label{
+    label := &store.Label{
       Id:   l.Id,
       Name: l.Name,
     }
@@ -230,11 +210,11 @@ func ExtractHeader(gmail gmail.Message, field string) string {
   return ""
 }
 
-func GmailToMessage(gmail gmail.Message, inboxUrl string, downloaded time.Time) (Message, error) {
+func GmailToMessage(gmail gmail.Message, inboxUrl string, downloaded time.Time) (store.Message, error) {
   // TODO: decode all of the fields, not just plain-text body
   date := time.Unix(gmail.InternalDate/1000, 0)
   body := BodyText(gmail)
-  message := Message{
+  message := store.Message{
     Id:                  gmail.Id,
     Url:                 fmt.Sprintf("%v#inbox/%v", inboxUrl, gmail.ThreadId),
     Date:                date,

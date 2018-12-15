@@ -4,7 +4,6 @@ import (
   "bytes"
   "encoding/json"
   "fmt"
-  "github.com/oaktown/calliope/gmailservice"
   "github.com/oaktown/calliope/store"
   "html/template"
   "io"
@@ -38,7 +37,7 @@ type Chart []BarData
 
 type HtmlData struct {
   ChartJson template.HTML
-  Messages  []*gmailservice.Message
+  Messages  []*store.Message
 }
 
 type ReportGenerator struct {
@@ -104,7 +103,7 @@ func Render(s *store.Service, wr io.Writer, messageSearch store.MessageSearch, i
   }
 }
 
-func getChartData(messages []*gmailservice.Message) Chart {
+func getChartData(messages []*store.Message) Chart {
   if len(messages) == 0 {
     return nil
   }

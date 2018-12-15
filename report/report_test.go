@@ -1,23 +1,22 @@
 package report
 
 import (
+  "github.com/oaktown/calliope/store"
   "reflect"
   "testing"
   "time"
-
-  "github.com/oaktown/calliope/gmailservice"
 )
 
-func m(s string) *gmailservice.Message {
+func m(s string) *store.Message {
   date, _ := time.Parse("2006/01/02", s)
-  return &gmailservice.Message{
+  return &store.Message{
     Date: date,
   }
 }
 
 func Test_getChartData(t *testing.T) {
   type args struct {
-    messages []*gmailservice.Message
+    messages []*store.Message
   }
 
   tests := []struct {
@@ -28,7 +27,7 @@ func Test_getChartData(t *testing.T) {
     {
       name: "Contiguous ordered",
       args: args{
-        messages: []*gmailservice.Message{
+        messages: []*store.Message{
           m("2018/01/01"),
           m("2018/01/02"),
           m("2018/01/03"),
@@ -55,7 +54,7 @@ func Test_getChartData(t *testing.T) {
     {
       name: "Contiguous out of order",
       args: args{
-        messages: []*gmailservice.Message{
+        messages: []*store.Message{
           m("2018/01/03"),
           m("2018/01/01"),
           m("2018/01/02"),
@@ -82,7 +81,7 @@ func Test_getChartData(t *testing.T) {
     {
       name: "Non-contiguous",
       args: args{
-        messages: []*gmailservice.Message{
+        messages: []*store.Message{
           m("2018/01/01"),
           m("2018/01/02"),
           m("2018/01/05"),
