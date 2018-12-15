@@ -142,26 +142,6 @@ func (s *Service) SaveMessage(data Message) error {
   return nil
 }
 
-func (s *Service) GetQueryFromLabel(labelName string, starred bool, size int) (*elastic.BoolQuery, error) {
-  labelId, err := s.FindLabelId(labelName)
-  if err != nil {
-    return nil, err
-  }
-  labelQuery := elastic.NewTermQuery("LabelIds.keyword", labelId)
-
-  query := elastic.NewBoolQuery()
-  query = query.Must(labelQuery) // weirdly before this line was in, when we got source, it included the label query but didn't work
-  if starred {
-    starredQuery := elastic.NewTermQuery("LabelIds.keyword", "STARRED")
-    query = query.Must(starredQuery)
-  }
-  return query, nil
-}
-
-func (s *Service) GetRawQuery(queryStr string, size int) *elastic.SearchService {
-  return s.Client.Search().Index(s.MailIndex).Source(queryStr).Size(size)
-}
-
 func (s *Service) FindLabelId(labelName string) (string, error) {
   labels, err := s.GetLabels()
   if err != nil {
@@ -221,17 +201,17 @@ func (s *Service) GetStats() (Stats, error) {
   if found != true {
     log.Println("Could not get maxDate")
   }
-  stats.Latest = time.Unix(toSeconds(*max.Value), 0)
+  stats.Latest = time.Unix(msToSecs(*max.Value), 0)
 
   min, found := aggs.Min("minDate")
   if found != true {
     log.Println("Could not get minDate")
   }
-  stats.Earliest = time.Unix(toSeconds(*min.Value), 0)
+  stats.Earliest = time.Unix(msToSecs(*min.Value), 0)
 
   return stats, nil
 }
 
-func toSeconds(timeInMs float64) int64 {
+func msToSecs(timeInMs float64) int64 {
   return int64(timeInMs / 1000.0)
 }

@@ -41,16 +41,7 @@ type HtmlData struct {
   Messages  []*store.Message
 }
 
-type ReportGenerator struct {
-  Opt QueryOptions
-  Svc *store.Service
-}
-
 func GetReport(opt QueryOptions, svc *store.Service) Report {
-  generator := ReportGenerator{
-    Opt: opt,
-    Svc: svc,
-  }
   var messageSearch store.MessageSearch
   if opt.Query != "" {
     messageSearch = svc.NewRawMessageSearch(opt.Query)
@@ -62,19 +53,18 @@ func GetReport(opt QueryOptions, svc *store.Service) Report {
       Size(opt.Size).
       Sort(opt.SortField, opt.SortAscending)
   }
+
+  var reportBuffer bytes.Buffer
+  Render(&reportBuffer, messageSearch, opt.InboxUrl)
+  reportHtml := template.HTML(reportBuffer.String())
+
   return Report{
     Query: messageSearch.QueryString(),
-    Html:  generator.GetReportHtml(messageSearch),
+    Html:  reportHtml,
   }
 }
 
-func (r ReportGenerator) GetReportHtml(messageSearch store.MessageSearch) template.HTML {
-  var reportBuffer bytes.Buffer
-  Render(r.Svc, &reportBuffer, messageSearch, r.Opt.InboxUrl)
-  return template.HTML(reportBuffer.String())
-}
-
-func Render(s *store.Service, wr io.Writer, messageSearch store.MessageSearch, inboxUrl string) {
+func Render(wr io.Writer, messageSearch store.MessageSearch, inboxUrl string) {
   gmailUrl := func(threadId string) string {
     return fmt.Sprintf("%v#inbox/%v", inboxUrl, threadId)
   }
