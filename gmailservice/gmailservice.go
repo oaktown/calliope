@@ -72,7 +72,6 @@ func DownloadLabels(d Downloader) []*store.Label {
       Id:   l.Id,
       Name: l.Name,
     }
-    fmt.Printf("Id: %v\nName: %v\n\n", label.Id, label.Name)
     labels = append(labels, label)
   }
   return labels
@@ -88,7 +87,6 @@ func SearchMessages(d Downloader) {
     request = request.MaxResults(d.Options.Limit)
   }
   if d.Options.Query != "" {
-    log.Println("adding: ", d.Options.Query)
     request = request.Q(d.Options.Query)
   }
   pageToken := ""
@@ -99,8 +97,8 @@ func SearchMessages(d Downloader) {
     response, err := d.DoList(request)
 
     if err != nil {
-      // Could be transient error (e.g. throttle), but for now we're just exiting
-      log.Print("search error: ", err)
+      // TODO: Could be transient error (e.g. throttle), but for now we're just exiting
+      log.Print("!!!!!!!!!! search error: ", err)
       return
     }
     pageToken = response.NextPageToken
@@ -162,14 +160,12 @@ func DownloadFullMessage(d Downloader, id string) {
     log.Printf("Unable to decode message %v: %v", id, err)
     return
   }
-  log.Println("Subject: ", message.Subject)
   header, value := HasMatchingHeader(d.Options.ExcludeHeaders, *gmailMsg)
   if header == "" {
+    log.Println("Downloaded message %s\n  Subject: ", id, message.Subject)
     d.MessageChan <- &message
   } else {
-    log.Println("Skipping message: ")
-    log.Println("  Subject: ", message.Subject)
-    log.Printf("  Matching header: %v: %v", header, value)
+    log.Printf("Skipping message: \n  Subject: %s\n  Matching header: %v: %v\n", message.Subject, header, value)
   }
 }
 

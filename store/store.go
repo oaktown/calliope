@@ -84,19 +84,17 @@ func createIndex(name string, client *elastic.Client, ctx context.Context) error
   return nil
 }
 
-func (s *Service) saveDoc(index string, id string, json string) error {
-  record, err := s.Client.Index().
+func (s *Service) saveDoc(index string, id string, json string) (*elastic.IndexResponse, error) {
+  response, err := s.Client.Index().
     Index(index).
     Id(id).
     Type("document").
     BodyJson(json).
     Do(s.Ctx)
   if err != nil {
-    log.Printf("Failed to index data id %s in index %s, err: %v", id, index, err)
-    return err
+    log.Printf("################ Failed to index data id %s in index %s, err: %v", id, index, err)
   }
-  log.Printf("Indexed data id %s to index %s, type %s\n", id, record.Index, record.Type)
-  return nil
+  return response, err
 }
 
 type LabelsDoc struct {
@@ -111,7 +109,7 @@ func (s *Service) SaveLabels(labels []*Label) error {
   }
   labelsJson, _ := json.MarshalIndent(doc, "", "\t")
 
-  if err := s.saveDoc(LabelsIndex, "labels", string(labelsJson)); err != nil {
+  if _, err := s.saveDoc(LabelsIndex, "labels", string(labelsJson)); err != nil {
     return err
   }
 
@@ -133,12 +131,27 @@ func (s *Service) GetLabels() ([]*Label, error) {
   return doc.Labels, nil
 }
 
-func (s *Service) SaveMessage(data Message) error {
+type MessageResponse struct {
+  Message  Message
+  Response *elastic.IndexResponse
+}
+
+func (s *Service) SaveMessage(data Message, responses chan<- *MessageResponse) error {
   log.Println("saving Message ID: ", data.Id)
   messageJson, _ := json.MarshalIndent(data, "", "\t")
-  if err := s.saveDoc(MailIndex, data.Id, string(messageJson)); err != nil {
+  response, err := s.saveDoc(MailIndex, data.Id, string(messageJson))
+  if err != nil {
     return err
   }
+  alert := ""
+  if response.Version > 1 {
+    alert = "***********************"
+    responses <- &MessageResponse{
+      Message:  data,
+      Response: response,
+    }
+  }
+  log.Printf("\nIndexed Message\nid: %s\n%s version:%d\nSubject:%s\n\n", response.Id, alert, response.Version, data.Subject)
   return nil
 }
 
