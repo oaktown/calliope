@@ -17,7 +17,7 @@ var runReport bool
 func init() {
   rootCmd.AddCommand(downloadCmd)
   downloadCmd.Flags().StringVarP(&limit, "limit", "l", "10", "limit number of emails to download (if > 500, rounds up to next multiple of 500).")
-  downloadCmd.Flags().StringVarP(&query, "query", "q", "", "Gmail query. E.g. \"after: 2018/11/01 label:my-label is:starred\" More info: See https://support.google.com/mail/answer/7190.")
+  downloadCmd.Flags().StringVarP(&query, "query", "q", "", "download based on Gmail query. E.g. \"after: 2018/11/01 label:my-label is:starred\" More info: See https://support.google.com/mail/answer/7190.")
   downloadCmd.Flags().StringVarP(&inboxUrl, "inbox-url", "u", "https://mail.google.com/mail/", "Url for gmail (useful if you are logged into multiple accounts).")
 }
 
