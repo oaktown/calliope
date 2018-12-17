@@ -234,7 +234,7 @@ func BodyText(msg gmail.Message) string {
     return string(body)
   } else {
     for _, part := range parts {
-      if part.MimeType == "text/plain" {
+      if part.MimeType == "text/html" {
         encodedBody := part.Body.Data
         body, _ := base64.URLEncoding.DecodeString(encodedBody)
         return string(body)

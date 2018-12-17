@@ -75,6 +75,10 @@ func Render(wr io.Writer, messageSearch store.MessageSearch, inboxUrl string) {
     return fmt.Sprint("#", id)
   }
 
+  htmlize := func(h string) template.HTML {
+    return template.HTML(h)
+  }
+
   // TODO: Return error or HTML that indicates a problem
   messages, err := messageSearch.Do()
   if err != nil {
@@ -90,6 +94,7 @@ func Render(wr io.Writer, messageSearch store.MessageSearch, inboxUrl string) {
       Funcs(template.FuncMap{
         "gmailUrl": gmailUrl,
         "jump":     jump,
+        "htmlize": htmlize,
       }).
       ParseFiles("templates/report.html"))
   data := HtmlData{
