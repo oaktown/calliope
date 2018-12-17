@@ -20,6 +20,7 @@ type QueryOptions struct {
   EndDate       string
   Timezone      string
   Participants  string
+  BodyOrSubject string
   Label         string
   InboxUrl      string
   Size          int
@@ -50,6 +51,7 @@ func GetReport(opt QueryOptions, svc *store.Service) Report {
       Label(opt.Label).
       DateRange(opt.StartDate, opt.EndDate, opt.Timezone).
       Participants(opt.Participants).
+      BodyOrSubject(opt.BodyOrSubject).
       Size(opt.Size).
       Sort(opt.SortField, opt.SortAscending)
   }

@@ -91,6 +91,19 @@ func (s StructuredMessageSearch) Participants(participants string) StructuredMes
   return s.updateQuery(query)
 }
 
+func (s StructuredMessageSearch) BodyOrSubject(term string) StructuredMessageSearch {
+  if term == "" {
+    return s
+  }
+  query := s.newOrExistingQuery()
+  multiMatchQuery := elastic.
+    NewMultiMatchQuery(term, "Subject", "Body").
+    Type("cross_fields").
+    Operator("and")
+  query = query.Must(multiMatchQuery)
+  return s.updateQuery(query)
+}
+
 func (s StructuredMessageSearch) DateRange(d1, d2, tz string) StructuredMessageSearch {
   query := s.newOrExistingQuery()
   startDate, startErr := time.Parse("2006-01-02 15:04:05 -0700", fmt.Sprintf("%s 00:00:00 %s", d1, tz))
