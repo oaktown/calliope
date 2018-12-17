@@ -1,6 +1,17 @@
+<style>
+  #chart {
+        width: 960px;
+        height: 500px;
+        text-align: center;
+    }
+</style>
+
 <script>
     data = JSON.parse({{.ChartJson}})
 </script>
+
+<div id="chart"></div>
+
 <h1 id="ToC">Table of Contents</h1>
 
 <table>
@@ -67,3 +78,37 @@
     </li>
     {{end}}
 </ul>
+
+<script src="//d3js.org/d3.v5.min.js" charset="utf-8"></script>
+<script src="/assets/c3.min.js"></script>
+<script>
+    let messages, dates;
+
+    messages = data.map(function(d) { return d.Messages; });
+    dates = data.map(function(d) { return d.Date; });
+
+    let chart = c3.generate({
+        bindto: '#chart',
+        data: {
+            x: 'x',
+            columns: [
+                ['x'].concat(dates),
+                ['Messages'].concat(messages),
+            ],
+            type: 'bar'
+        },
+        axis: {
+            x: {
+                type: 'timeseries',
+                tick: {
+                    format: '%Y-%m-%d'
+                }
+            }
+        },
+        bar: {
+            width: {
+                ratio: 0.98 // this makes bar width 50% of length between ticks
+            }
+        }
+    });
+</script>

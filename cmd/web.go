@@ -33,6 +33,9 @@ func startServer() {
     web.ShowStats(r, w)
   })
 
+  fs := http.FileServer(http.Dir("public/assets"))
+  http.Handle("/assets/", http.StripPrefix("/assets/", fs))
+
   http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
     if r.URL.Path == "/" {
       web.ShowHomepage(r, w)
