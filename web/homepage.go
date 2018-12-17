@@ -57,6 +57,7 @@ func (h Homepage) getFormFields() report.QueryOptions {
     EndDate:       r.FormValue("endDate"),
     Timezone:      timezone,
     Participants:  r.FormValue("participants"),
+    BodyOrSubject: r.FormValue("bodyOrSubject"),
     Label:         r.FormValue("label"),
     Starred:       r.FormValue("starred") == "true",
     InboxUrl:      inboxUrl,
