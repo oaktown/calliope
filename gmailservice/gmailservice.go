@@ -3,6 +3,7 @@ package gmailservice
 import (
   "encoding/base64"
   "fmt"
+  "github.com/jonboulle/clockwork"
   "github.com/oaktown/calliope/store"
   "google.golang.org/api/gmail/v1"
   "google.golang.org/api/googleapi"
@@ -19,10 +20,11 @@ type Downloader struct {
   MaxWorkers   int
   Svc          *gmail.Service
   Options      Options
-  DoList       func(*gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error)
-  DoGet        func(request *gmail.UsersMessagesGetCall) (*gmail.Message, error)
+  doList       func(*gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error)
+  doGet        func(request *gmail.UsersMessagesGetCall) (*gmail.Message, error)
   DoListLabels func(call *gmail.UsersLabelsListCall) ()
   StartedAt    time.Time
+  clock        clockwork.Clock
 }
 
 type Options struct {
@@ -43,8 +45,8 @@ func New(svc *gmail.Service, options Options, maxWorkers int) Downloader {
     MaxWorkers:   maxWorkers,
     Svc:          svc,
     Options:      options,
-    DoList:       DoList,
-    DoGet:        DoGet,
+    doList:       doList,
+    doGet:        doGet,
     StartedAt:    time.Now(),
   }
 }
@@ -94,7 +96,7 @@ func SearchMessages(d Downloader) {
     if pageToken != "" {
       request = request.PageToken(pageToken)
     }
-    response, err := d.DoList(request)
+    response, err := d.doListWrapper(request)
 
     if err != nil {
       log.Printf("!!!!!!!!!!!!!!!!!!!!! Error calling search API. \n  Query: %v \n  Page token: %v\n  Search error: %v", d.Options.Query, pageToken, err)
@@ -113,15 +115,19 @@ func SearchMessages(d Downloader) {
   close(d.SearchChan)
 }
 
-func DoList(request *gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error) {
+func (d *Downloader) doListWrapper(request *gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error) {
   var response *gmail.ListMessagesResponse
   fn := func() error {
-    r, err := request.Do()
+    r, err := doList(request)
     response = r
     return err
   }
-  err := tryThrice(fn)
+  err := d.tryThrice(fn)
   return response, err
+}
+
+func doList(request *gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error) {
+  return request.Do()
 }
 
 func DownloadFullMessages(d Downloader) {
@@ -164,7 +170,7 @@ func DownloadFullMessage(d Downloader, id string) {
   }
 
   request := d.Svc.Users.Messages.Get("me", id)
-  gmailMsg, err := d.DoGet(request)
+  gmailMsg, err := d.DoGetWrapper(request)
   log.Println("Fetching message id:", id)
   if err != nil {
     errMsg := fmt.Sprintf("Unable to retrieve message %v: %v", id, err)
@@ -186,15 +192,19 @@ func DownloadFullMessage(d Downloader, id string) {
   }
 }
 
-func DoGet(request *gmail.UsersMessagesGetCall) (*gmail.Message, error) {
+func (d *Downloader) DoGetWrapper(request *gmail.UsersMessagesGetCall) (*gmail.Message, error) {
   var gmailMsg *gmail.Message
   fn := func() error {
-    r, err := request.Do()
+    r, err := d.doGet(request)
     gmailMsg = r
     return err
   }
-  err := tryThrice(fn)
+  err := d.tryThrice(fn)
   return gmailMsg, err
+}
+
+func doGet(request *gmail.UsersMessagesGetCall) (*gmail.Message, error) {
+  return request.Do()
 }
 
 func BodyText(msg gmail.Message) string {
@@ -251,7 +261,7 @@ func GmailToMessage(gmail gmail.Message, inboxUrl string, downloaded time.Time) 
   return message, nil
 }
 
-func tryThrice(fn func() error) error {
+func (d *Downloader) tryThrice(fn func() error) error {
   var err error
   for count := 0; count < 3; count ++ {
     err = fn()
@@ -262,8 +272,8 @@ func tryThrice(fn func() error) error {
     // If we have exceeded API usage, API will return 429 or 403.
     if code == 429 || code == 403 {
       secs := 10.0 * (count + 1)
-      d, _ := time.ParseDuration(fmt.Sprintf("%ds", secs))
-      time.Sleep(d)
+      duration, _ := time.ParseDuration(fmt.Sprintf("%ds", secs))
+      d.clock.Sleep(duration)
     } else {
       // If it's something else, we don't know how to deal with it, so just pass on the error
       return err
