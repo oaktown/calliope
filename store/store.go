@@ -27,7 +27,7 @@ type Message struct {
   Date                time.Time
   DownloadedStartedAt time.Time
   To                  string
-  Cc                  string
+  Cc                   string
   From                string
   Subject             string
   Snippet             string
