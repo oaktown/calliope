@@ -22,7 +22,7 @@ func Test_getChartData(t *testing.T) {
   tests := []struct {
     name string
     args args
-    want []BarData
+    want Chart
   }{
     {
       name: "Contiguous ordered",
@@ -36,7 +36,7 @@ func Test_getChartData(t *testing.T) {
           m("2018/01/02"),
         },
       },
-      want: []BarData{
+      want: Chart{
         {
           Date:     "2018-01-01",
           Messages: 3,
@@ -63,7 +63,7 @@ func Test_getChartData(t *testing.T) {
           m("2018/01/02"),
         },
       },
-      want: []BarData{
+      want: Chart{
         {
           Date:     "2018-01-01",
           Messages: 3,
@@ -90,7 +90,7 @@ func Test_getChartData(t *testing.T) {
           m("2018/01/02"),
         },
       },
-      want: []BarData{
+      want: Chart{
         {
           Date:     "2018-01-01",
           Messages: 3,
@@ -117,7 +117,7 @@ func Test_getChartData(t *testing.T) {
   for _, tt := range tests {
     t.Run(tt.name, func(t *testing.T) {
       if got := getChartData(tt.args.messages); !reflect.DeepEqual(got, tt.want) {
-        t.Errorf("getChartData() = %v, want %v", got, tt.want)
+        t.Errorf("getChartData() = %+v, want %+v", got, tt.want)
       }
     })
   }
