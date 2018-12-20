@@ -163,18 +163,22 @@ curl -XDELETE localhost:9200/mail
 To run tests:
 
 ```bash
-go test ./gmailservice
+go test -v ./...
 ```
 
-Note: If you find a problematic email and want to download it locally e.g. to add as a test fixture, 
-you can get it using curl, too:
+The `-v` option is optional; it provides more info and also ignores test cache. The `./..`
+means to run all tests. Alternatively, you can provide a path to the package (e.g. 
+`./gmailservice`).   
+
+Note: If you find a problematic email and want to download it locally e.g. to add as a test
+fixture, you can get it using curl:
 
 ```bash
 curl localhost:9200/mail/document/<id> > fixture.json
 ```
 
-Removing stuff you don't need for the test would be nice, too, as it would make it easier to find 
-relevant data in the fixture.
+Removing stuff you don't need for the test would be nice, too, as it would make it easier to
+find relevant data in the fixture.
 
 ## Debugging
    
@@ -186,3 +190,13 @@ dlv debug main.go -- download -q "is:starred label:devchix" -l 10 -R
 ```
 
 Note: The `--` separates `dlv` commandline args from the commandline args of the program being debugged. 
+
+To debug tests that have fixtures, you will need to change the working directory:
+
+```bash
+cd gmailservice
+dlv test . -- -test.v
+``` 
+
+If you don't change working directories, it'll have trouble finding fixture. Also, `./..` 
+from the project root doesn't work.
