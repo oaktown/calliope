@@ -133,9 +133,13 @@ func doList(request *gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, 
 }
 
 func DownloadFullMessages(d Downloader) {
-  defer close(d.MessageChan)
+  defer func() {
+    close(d.MessageChan)
+  }()
+  var i int
   for searchResult := range d.SearchChan {
     d.WorkersQueue <- true
+    i++
     go DownloadFullMessage(d, searchResult.Id)
   }
   d.NoNewWorkers()
@@ -160,15 +164,16 @@ func HasMatchingHeader(excludeHeaders map[string][]string, message gmail.Message
 }
 
 func DownloadFullMessage(d Downloader, id string) {
-  defer func() { <-d.WorkersQueue }()
+  defer func() {
+    <-d.WorkersQueue
+  }()
 
-  partialMessageWithError := func(errMsg string) {
-    d.MessageChan <- &store.Message{
+  partialMessageWithError := func(errMsg string) *store.Message {
+    return &store.Message{
       Id:                  id,
       DownloadedStartedAt: d.StartedAt,
       Subject:             errMsg,
     }
-    log.Print(errMsg)
   }
 
   //TODO: Can't call this because it triggers oauth. need to be able to stub it out, too
@@ -176,13 +181,13 @@ func DownloadFullMessage(d Downloader, id string) {
   log.Println("Fetching message id:", id)
   if err != nil {
     errMsg := fmt.Sprintf("Unable to retrieve message %v: %v", id, err)
-    partialMessageWithError(errMsg)
+    d.MessageChan <- partialMessageWithError(errMsg)
     return
   }
-  message, _ := d.GmailToMessage(*gmailMsg, d.Options.InboxUrl, d.StartedAt)
+  message, err := d.GmailToMessage(*gmailMsg, d.Options.InboxUrl, d.StartedAt)
   if err != nil {
     errMsg := fmt.Sprintf("Unable to decode message %v: %v", id, err)
-    partialMessageWithError(errMsg)
+    d.MessageChan <- partialMessageWithError(errMsg)
     return
   }
   header, value := HasMatchingHeader(d.Options.ExcludeHeaders, *gmailMsg)
@@ -270,7 +275,7 @@ func GmailToMessage(gmail gmail.Message, inboxUrl string, downloaded time.Time) 
 
 func (d *Downloader) tryThrice(fn func() error) error {
   var err error
-  for count := 0; count < 3; count ++ {
+  for count := 0; count < 3; count++ {
     err = fn()
     if err == nil {
       break
@@ -278,9 +283,11 @@ func (d *Downloader) tryThrice(fn func() error) error {
     code := err.(*googleapi.Error).Code
     // If we have exceeded API usage, API will return 429 or 403.
     if code == 429 || code == 403 {
-      secs := 10.0 * (count + 1)
-      duration, _ := time.ParseDuration(fmt.Sprintf("%ds", secs))
-      d.clock.Sleep(duration)
+      if count == 2 {
+        return err
+      }
+      secs := time.Duration(10*(count+1)) * time.Second
+      d.clock.Sleep(secs)
     } else {
       // If it's something else, we don't know how to deal with it, so just pass on the error
       return err
