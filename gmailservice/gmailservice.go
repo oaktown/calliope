@@ -50,6 +50,7 @@ func New(svc *gmail.Service, options Options, maxWorkers int) Downloader {
     doGet:          doGet,
     GmailToMessage: GmailToMessage,
     StartedAt:      time.Now(),
+    clock: clockwork.NewRealClock(),
   }
 }
 
