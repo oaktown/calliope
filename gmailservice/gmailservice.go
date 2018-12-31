@@ -12,6 +12,9 @@ import (
   "time"
 )
 
+// number of seconds to wait before retrying (multiplied by number of retries)
+const RetryWaitInterval = 60
+
 type Downloader struct {
   SearchChan     chan *gmail.Message
   MessageChan    chan *store.Message
@@ -50,6 +53,7 @@ func New(svc *gmail.Service, options Options, maxWorkers int) Downloader {
     doGet:          doGet,
     GmailToMessage: GmailToMessage,
     StartedAt:      time.Now(),
+    clock:          clockwork.NewRealClock(),
   }
 }
 
@@ -69,7 +73,10 @@ func Download(d Downloader) []*store.Label {
 
 func DownloadLabels(d Downloader) []*store.Label {
   request := d.Svc.Users.Labels.List("me")
-  response, _ := request.Do()
+  response, err := request.Do()
+  if (err != nil) {
+    log.Fatal(err);   // TODO: need better error handling
+  }
   var labels []*store.Label
   for _, l := range response.Labels {
     label := &store.Label{
@@ -286,7 +293,7 @@ func (d *Downloader) tryThrice(fn func() error) error {
       if count == 2 {
         return err
       }
-      secs := time.Duration(10*(count+1)) * time.Second
+      secs := time.Duration(count+1) * time.Second * RetryWaitInterval
       d.clock.Sleep(secs)
     } else {
       // If it's something else, we don't know how to deal with it, so just pass on the error

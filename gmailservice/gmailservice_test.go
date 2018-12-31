@@ -102,7 +102,7 @@ func TestDownloadFullMessages(t *testing.T) {
     var messages, partialMessages []*store.Message
     startTimeStr := "2018-12-01 0:00:00 PST"
     maxWorkers := 3
-    finalAdvance := 90 * time.Second
+    finalAdvance := RetryWaitInterval * time.Second * 10
     verify429sAnd200s := func(failures, successes int) {
       if total429s != failures {
         t.Errorf("Expected %v 429 responses. Instead, got %v", failures, total429s)
@@ -162,7 +162,7 @@ func TestDownloadFullMessages(t *testing.T) {
     verify429sAnd200s(expected.firstAdvance.failures, expected.firstAdvance.successes)
 
     // Advance fakeClock to first retry (still before the time we start responding w/ 200s)
-    fakeClock.Advance(30 * time.Second)
+    fakeClock.Advance(RetryWaitInterval * time.Second)
     // Wait until all three goroutines have called Sleep the second time
     fakeClock.BlockUntil(maxWorkers)
     verify429sAnd200s(expected.secondAdvance.failures, expected.secondAdvance.successes)
