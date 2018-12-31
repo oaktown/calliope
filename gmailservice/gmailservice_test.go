@@ -97,13 +97,16 @@ func TestDownloadFullMessages(t *testing.T) {
     finalAdvance  results
   }
 
-  testWith429s := func(expected allResults, secsBeforeOk time.Duration) {
+  var failInterval1 = RetryWaitInterval * time.Second;
+  var failInterval2 = RetryWaitInterval * time.Second * 2;
+
+  testWith429s := func(expected allResults, durationBeforeOk time.Duration) {
     var total429s, total200s int
     var messages, partialMessages []*store.Message
     startTimeStr := "2018-12-01 0:00:00 PST"
     maxWorkers := 3
-    finalAdvance := 90 * time.Second
     verify429sAnd200s := func(failures, successes int) {
+      log.Printf("verify429sAnd200s, failures: %v, successes: %v", failures, successes)
       if total429s != failures {
         t.Errorf("Expected %v 429 responses. Instead, got %v", failures, total429s)
       }
@@ -112,8 +115,10 @@ func TestDownloadFullMessages(t *testing.T) {
       }
     }
 
-    failsFor := func(start time.Time, secs time.Duration) func(*Downloader, string) (*gmail.Message, error) {
-      ok := start.Add(secs * time.Second)
+    failsFor := func(start time.Time, failDuration time.Duration) func(*Downloader, string) (*gmail.Message, error) {
+      log.Printf("failsFor, start: %v, failDuration: %v", start, failDuration)
+
+      ok := start.Add(failDuration)
       return func(d *Downloader, id string) (*gmail.Message, error) {
         now := d.clock.Now()
         if !now.Before(ok) {
@@ -131,7 +136,7 @@ func TestDownloadFullMessages(t *testing.T) {
     fakeClock := clockwork.NewFakeClockAt(start)
     downloader := New(nil, Options{}, maxWorkers)
     downloader.clock = fakeClock
-    downloader.doGet = failsFor(start, secsBeforeOk)
+    downloader.doGet = failsFor(start, durationBeforeOk)
     var wg sync.WaitGroup
     wg.Add(1)
     go func() {
@@ -161,14 +166,17 @@ func TestDownloadFullMessages(t *testing.T) {
     fakeClock.BlockUntil(maxWorkers)
     verify429sAnd200s(expected.firstAdvance.failures, expected.firstAdvance.successes)
 
-    // Advance fakeClock to first retry (still before the time we start responding w/ 200s)
-    fakeClock.Advance(30 * time.Second)
+    // Advance fakeClock ahead by first retry interval
+    // (still before the time we start responding w/ 200s)
+    fakeClock.Advance(failInterval1)
+
     // Wait until all three goroutines have called Sleep the second time
     fakeClock.BlockUntil(maxWorkers)
     verify429sAnd200s(expected.secondAdvance.failures, expected.secondAdvance.successes)
 
-    // Advance fakeClock into the time we respond with 200s, and grab all messages before final verification
-    fakeClock.Advance(finalAdvance)
+    // Advance fakeClock into the time we respond with 200s,
+    // then grab all messages before final verification
+    fakeClock.Advance(failInterval2 + RetryWaitInterval * time.Second)
     wg.Wait()
     verify429sAnd200s(expected.finalAdvance.failures, expected.finalAdvance.successes)
     if len(messages) != expected.finalAdvance.successes {
@@ -199,7 +207,7 @@ func TestDownloadFullMessages(t *testing.T) {
               failures:  6,
               successes: 3,
             },
-          }, 59,
+          }, failInterval2,
         )
       },
     },
@@ -217,10 +225,10 @@ func TestDownloadFullMessages(t *testing.T) {
               successes: 0,
             },
             finalAdvance: results{
-              failures:  9,
-              successes: 0,
+              failures:  6,
+              successes: 3,
             },
-          }, 180,
+          }, failInterval2,
         )
       },
     },
