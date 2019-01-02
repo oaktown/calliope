@@ -53,6 +53,14 @@
   version = "v1.0"
 
 [[projects]]
+  digest = "1:75ab90ae3f5d876167e60f493beadfe66f0ed861a710f283fb06c86437a09538"
+  name = "github.com/jonboulle/clockwork"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "2eee05ed794112d45db504eb05aa693efd2b8b09"
+  version = "v0.1.0"
+
+[[projects]]
   digest = "1:c568d7727aa262c32bdf8a3f7db83614f7af0ed661474b24588de635c20024c7"
   name = "github.com/magiconair/properties"
   packages = ["."]
@@ -260,6 +268,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/jonboulle/clockwork",
     "github.com/mitchellh/go-homedir",
     "github.com/olivere/elastic",
     "github.com/spf13/cobra",
@@ -268,6 +277,7 @@
     "golang.org/x/oauth2",
     "golang.org/x/oauth2/google",
     "google.golang.org/api/gmail/v1",
+    "google.golang.org/api/googleapi",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

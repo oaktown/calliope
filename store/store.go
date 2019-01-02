@@ -27,7 +27,7 @@ type Message struct {
   Date                time.Time
   DownloadedStartedAt time.Time
   To                  string
-  Cc                  string
+  Cc                   string
   From                string
   Subject             string
   Snippet             string
@@ -52,11 +52,11 @@ func New(ctx context.Context) (*Service, error) {
   }
 
   if err := createIndex(MailIndex, client, ctx); err != nil {
-    log.Println("Error creating %v index: %v", MailIndex, err)
+    log.Printf("Error creating %v index: %v\n", MailIndex, err)
     return nil, err
   }
   if err := createIndex(LabelsIndex, client, ctx); err != nil {
-    log.Println("Error creating %v index: %v", LabelsIndex, err)
+    log.Printf("Error creating %v index: %v\n", LabelsIndex, err)
     return nil, err
   }
 

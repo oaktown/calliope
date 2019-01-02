@@ -3,26 +3,29 @@ package gmailservice
 import (
   "encoding/base64"
   "fmt"
+  "github.com/jonboulle/clockwork"
   "github.com/oaktown/calliope/store"
+  "google.golang.org/api/gmail/v1"
+  "google.golang.org/api/googleapi"
   "log"
   "strings"
   "time"
-
-  "google.golang.org/api/gmail/v1"
 )
 
 type Downloader struct {
-  SearchChan   chan *gmail.Message
-  MessageChan  chan *store.Message
-  M2           chan *store.Message
-  WorkersQueue chan bool
-  MaxWorkers   int
-  Svc          *gmail.Service
-  Options      Options
-  DoList       func(*gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error)
-  DoGet        func(request *gmail.UsersMessagesGetCall) (*gmail.Message, error)
-  DoListLabels func(call *gmail.UsersLabelsListCall) ()
-  StartedAt time.Time
+  SearchChan     chan *gmail.Message
+  MessageChan    chan *store.Message
+  M2             chan *store.Message
+  WorkersQueue   chan bool
+  MaxWorkers     int
+  Svc            *gmail.Service
+  Options        Options
+  doList         func(*gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error)
+  doGet          func(*Downloader, string) (*gmail.Message, error)
+  DoListLabels   func(*gmail.UsersLabelsListCall) ()
+  GmailToMessage func(gmail.Message, string, time.Time) (store.Message, error)
+  StartedAt      time.Time
+  clock          clockwork.Clock
 }
 
 type Options struct {
@@ -37,15 +40,17 @@ func New(svc *gmail.Service, options Options, maxWorkers int) Downloader {
   message := make(chan *store.Message)
   workers := make(chan bool, maxWorkers)
   return Downloader{
-    SearchChan:   search,
-    MessageChan:  message,
-    WorkersQueue: workers,
-    MaxWorkers:   maxWorkers,
-    Svc:          svc,
-    Options:      options,
-    DoList:       DoList,
-    DoGet:        DoGet,
-    StartedAt:   time.Now(),
+    SearchChan:     search,
+    MessageChan:    message,
+    WorkersQueue:   workers,
+    MaxWorkers:     maxWorkers,
+    Svc:            svc,
+    Options:        options,
+    doList:         doList,
+    doGet:          doGet,
+    GmailToMessage: GmailToMessage,
+    StartedAt:      time.Now(),
+    clock: clockwork.NewRealClock(),
   }
 }
 
@@ -94,11 +99,10 @@ func SearchMessages(d Downloader) {
     if pageToken != "" {
       request = request.PageToken(pageToken)
     }
-    response, err := d.DoList(request)
+    response, err := d.doListWrapper(request)
 
     if err != nil {
-      // TODO: Could be transient error (e.g. throttle), but for now we're just exiting
-      log.Print("!!!!!!!!!! search error: ", err)
+      log.Printf("!!!!!!!!!!!!!!!!!!!!! Error calling search API. \n  Query: %v \n  Page token: %v\n  Search error: %v", d.Options.Query, pageToken, err)
       return
     }
     pageToken = response.NextPageToken
@@ -114,15 +118,29 @@ func SearchMessages(d Downloader) {
   close(d.SearchChan)
 }
 
-func DoList(request *gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error) {
-  response, err := request.Do()
+func (d *Downloader) doListWrapper(request *gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error) {
+  var response *gmail.ListMessagesResponse
+  fn := func() error {
+    r, err := doList(request)
+    response = r
+    return err
+  }
+  err := d.tryThrice(fn)
   return response, err
 }
 
+func doList(request *gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error) {
+  return request.Do()
+}
+
 func DownloadFullMessages(d Downloader) {
-  defer close(d.MessageChan)
+  defer func() {
+    close(d.MessageChan)
+  }()
+  var i int
   for searchResult := range d.SearchChan {
     d.WorkersQueue <- true
+    i++
     go DownloadFullMessage(d, searchResult.Id)
   }
   d.NoNewWorkers()
@@ -147,36 +165,64 @@ func HasMatchingHeader(excludeHeaders map[string][]string, message gmail.Message
 }
 
 func DownloadFullMessage(d Downloader, id string) {
-  defer func() { <-d.WorkersQueue }()
-  request := d.Svc.Users.Messages.Get("me", id)
-  gmailMsg, err := d.DoGet(request)
+  defer func() {
+    <-d.WorkersQueue
+  }()
+
+  partialMessageWithError := func(errMsg string) *store.Message {
+    return &store.Message{
+      Id:                  id,
+      DownloadedStartedAt: d.StartedAt,
+      Subject:             errMsg,
+    }
+  }
+
+  //TODO: Can't call this because it triggers oauth. need to be able to stub it out, too
+  gmailMsg, err := d.DoGetWrapper(id)
   log.Println("Fetching message id:", id)
   if err != nil {
-    log.Printf("Unable to retrieve message %v: %v", id, err)
+    errMsg := fmt.Sprintf("Unable to retrieve message %v: %v", id, err)
+    d.MessageChan <- partialMessageWithError(errMsg)
     return
   }
-  message, _ := GmailToMessage(*gmailMsg, d.Options.InboxUrl, d.StartedAt)
+  message, err := d.GmailToMessage(*gmailMsg, d.Options.InboxUrl, d.StartedAt)
   if err != nil {
-    log.Printf("Unable to decode message %v: %v", id, err)
+    errMsg := fmt.Sprintf("Unable to decode message %v: %v", id, err)
+    d.MessageChan <- partialMessageWithError(errMsg)
     return
   }
   header, value := HasMatchingHeader(d.Options.ExcludeHeaders, *gmailMsg)
   if header == "" {
-    log.Println("Downloaded message %s\n  Subject: ", id, message.Subject)
+    log.Printf("Downloaded message %v\n  Subject: %v\n", id, message.Subject)
     d.MessageChan <- &message
   } else {
     log.Printf("Skipping message: \n  Subject: %s\n  Matching header: %v: %v\n", message.Subject, header, value)
   }
 }
 
-func DoGet(request *gmail.UsersMessagesGetCall) (*gmail.Message, error) {
-  gmailMsg, err := request.Do()
+func (d *Downloader) DoGetWrapper(id string) (*gmail.Message, error) {
+  // This method exists mostly so tryThrice doesn't have to be implemented twice:
+  // once for list and once for message (since they have different signatures).
+  // Could have been part of DownloadFullMessage but that's long enough already.
+  // Almost the same as DoListWrapper except for the type in closure.
+  var gmailMsg *gmail.Message
+  fn := func() error {
+    r, err := d.doGet(d, id)
+    gmailMsg = r
+    return err
+  }
+  err := d.tryThrice(fn)
   return gmailMsg, err
+}
+
+func doGet(d *Downloader, id string) (*gmail.Message, error) {
+  return d.Svc.Users.Messages.Get("me", id).Do()
 }
 
 func BodyText(msg gmail.Message) string {
   // TODO: We might want to see if there are other places the body can be located.
   parts := msg.Payload.Parts
+  //TODO: when there is no body
   if msg.Payload.Body.Data != "" {
     body, _ := base64.URLEncoding.DecodeString(msg.Payload.Body.Data)
     return string(body)
@@ -226,4 +272,27 @@ func GmailToMessage(gmail gmail.Message, inboxUrl string, downloaded time.Time) 
     Source:              gmail,
   }
   return message, nil
+}
+
+func (d *Downloader) tryThrice(fn func() error) error {
+  var err error
+  for count := 0; count < 3; count++ {
+    err = fn()
+    if err == nil {
+      break
+    }
+    code := err.(*googleapi.Error).Code
+    // If we have exceeded API usage, API will return 429 or 403.
+    if code == 429 || code == 403 {
+      if count == 2 {
+        return err
+      }
+      secs := time.Duration(10*(count+1)) * time.Second
+      d.clock.Sleep(secs)
+    } else {
+      // If it's something else, we don't know how to deal with it, so just pass on the error
+      return err
+    }
+  }
+  return err
 }
