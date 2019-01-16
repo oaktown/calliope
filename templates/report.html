@@ -1,13 +1,13 @@
 <style>
   #chart {
-        width: 960px;
-        height: 500px;
-        text-align: center;
-    }
+    width: 960px;
+    height: 500px;
+    text-align: center;
+  }
 </style>
 
 <script>
-    data = JSON.parse({{.ChartJson}})
+  data = JSON.parse({{.ChartJson}})
 </script>
 
 <div id="chart"></div>
@@ -15,100 +15,104 @@
 <h1 id="ToC">Table of Contents</h1>
 
 <table>
-    <thead>
+  <thead>
+  <tr>
+    <th>Date</th>
+    <th>From</th>
+    <th>Gmail</th>
+    <th>Jump</th>
+    <th>Subject</th>
+  </tr>
+  </thead>
+  <tbody>
+  {{range .Messages}}
     <tr>
-        <th>Date</th>
-        <th>From</th>
-        <th>Gmail</th>
-        <th>Jump</th>
-        <th>Subject</th>
+      <td>{{.Date}}</td>
+      <td>{{.From}}</td>
+      <td><a href="{{.ThreadId | gmailUrl}}" target="_blank">Gmail</a></td>
+      <td><a href="{{.Id | jump}}">jump</a></td>
+      <td>{{.Subject}}</td>
     </tr>
-    </thead>
-    <tbody>
-    {{range .Messages}}
-    <tr>
-        <td>{{.Date}}</td>
-        <td>{{.From}}</td>
-        <td><a href="{{.ThreadId | gmailUrl}}" target="_blank">Gmail</a></td>
-        <td><a href="{{.Id | jump}}">jump</a></td>
-        <td>{{.Subject}}</td>
-    </tr>
-    {{end}}
-    </tbody>
+  {{end}}
+  </tbody>
 </table>
 
 <h2>Email messages</h2>
 
 <ul>
-    {{range .Messages}}
+  {{range .Messages}}
     <li>
-        <table id="{{.Id}}">
-            <tr>
-                <th scope="row">Date</th>
-                <td>{{.Date}}</td>
-            </tr>
-            <tr>
-                <th scope="row">From</th>
-                <td>{{.From}}</td>
-            </tr>
-            <tr>
-                <th scope="row">To</th>
-                <td>{{.To}}</td>
-            </tr>
-            <tr>
-                <th scope="row">Cc</th>
-                <td>{{.Cc}}</td>
-            </tr>
-            <tr>
-                <th scope="row">Subject</th>
-                <td>{{.Subject}}</td>
-            </tr>
-        </table>
-        <div>
-            {{.Body}}
-        </div>
-        <ul>
-            <li>
-                <a href="#ToC">ToC</a>
-            </li>
-            <li>
-                <a href="{{.ThreadId | gmailUrl}}" target="_blank">Gmail</a>
-            </li>
-        </ul>
+      <table id="{{.Id}}">
+        <tr>
+          <th scope="row">Date</th>
+          <td>{{.Date}}</td>
+        </tr>
+        <tr>
+          <th scope="row">From</th>
+          <td>{{.From}}</td>
+        </tr>
+        <tr>
+          <th scope="row">To</th>
+          <td>{{.To}}</td>
+        </tr>
+        <tr>
+          <th scope="row">Cc</th>
+          <td>{{.Cc}}</td>
+        </tr>
+        <tr>
+          <th scope="row">Subject</th>
+          <td>{{.Subject}}</td>
+        </tr>
+      </table>
+      <div>
+        {{.Body}}
+      </div>
+      <ul>
+        <li>
+          <a href="#ToC">ToC</a>
+        </li>
+        <li>
+          <a href="{{.ThreadId | gmailUrl}}" target="_blank">Gmail</a>
+        </li>
+      </ul>
     </li>
-    {{end}}
+  {{end}}
 </ul>
 
 <script src="//d3js.org/d3.v5.min.js" charset="utf-8"></script>
 <script src="/assets/c3.min.js"></script>
 <script>
-    let messages, dates;
+  let messages, dates;
 
-    messages = data.map(function(d) { return d.Messages; });
-    dates = data.map(function(d) { return d.Date; });
+  messages = data.map(function (d) {
+    return d.Messages;
+  });
+  dates = data.map(function (d) {
+    return d.Date;
+  });
 
-    let chart = c3.generate({
-        bindto: '#chart',
-        data: {
-            x: 'x',
-            columns: [
-                ['x'].concat(dates),
-                ['Messages'].concat(messages),
-            ],
-            type: 'bar'
-        },
-        axis: {
-            x: {
-                type: 'timeseries',
-                tick: {
-                    format: '%Y-%m-%d'
-                }
-            }
-        },
-        bar: {
-            width: {
-                ratio: 0.98 // this makes bar width 50% of length between ticks
-            }
+  let chart = c3.generate({
+    bindto: '#chart',
+    data: {
+      x: 'x',
+      columns: [
+        ['x'].concat(dates),
+        ['Messages'].concat(messages),
+      ],
+      type: 'bar'
+    },
+    axis: {
+      x: {
+        type: 'timeseries',
+        tick: {
+          format: '%Y-%m-%d'
         }
-    });
+      }
+    },
+    bar: {
+      width: {
+        ratio: 0.98 // this makes bar width 50% of length between ticks
+      }
+    }
+  });
 </script>
