@@ -100,13 +100,15 @@ func TestDownloadFullMessages(t *testing.T) {
   var failInterval1 = RetryWaitInterval * time.Second;
   var failInterval2 = RetryWaitInterval * time.Second * 2;
 
+  // this should be longer than the duration of the test
+  var failIntervalLong = RetryWaitInterval * time.Second * 10;
+
   testWith429s := func(expected allResults, durationBeforeOk time.Duration) {
     var total429s, total200s int
     var messages, partialMessages []*store.Message
     startTimeStr := "2018-12-01 0:00:00 PST"
     maxWorkers := 3
     verify429sAnd200s := func(failures, successes int) {
-      log.Printf("verify429sAnd200s, failures: %v, successes: %v", failures, successes)
       if total429s != failures {
         t.Errorf("Expected %v 429 responses. Instead, got %v", failures, total429s)
       }
@@ -116,8 +118,6 @@ func TestDownloadFullMessages(t *testing.T) {
     }
 
     failsFor := func(start time.Time, failDuration time.Duration) func(*Downloader, string) (*gmail.Message, error) {
-      log.Printf("failsFor, start: %v, failDuration: %v", start, failDuration)
-
       ok := start.Add(failDuration)
       return func(d *Downloader, id string) (*gmail.Message, error) {
         now := d.clock.Now()
@@ -225,10 +225,10 @@ func TestDownloadFullMessages(t *testing.T) {
               successes: 0,
             },
             finalAdvance: results{
-              failures:  6,
-              successes: 3,
+              failures:  9,
+              successes: 0,
             },
-          }, failInterval2,
+          }, failIntervalLong,
         )
       },
     },
