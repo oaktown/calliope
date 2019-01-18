@@ -28,13 +28,23 @@ The last line shouldn't cause any changes since we're checking all dependencies 
 
 This is adapted from olivere's [elastic-with-docker repo](https://github.com/olivere/elastic-with-docker).
 
-In the project directory, type:
+_NOTE: The following should be done from the project directory._
+
+Copy the example Docker Compose file:
 
 ```bash
-docker-compose -f docker-compose.local.yml up # this will run in the foreground
+cp docker-compose.example.yml docker-compose.yml
 ```
 
-This will download the docker images (if you don't have them already) and run Elasticsearch on port 9200.
+Edit it to your needs. Then start up Elasticsearch:
+
+
+```bash
+docker-compose up 
+```
+
+This will download the docker images (if you don't have them already) and run Elasticsearch on port 9200. Note: The command above will run in the foreground where you will see logging output. You can stop the container with `ctrl-c`. If you want to run in the background instead, attach the `-d` flag. 
+
 
 To test on the terminal:
 

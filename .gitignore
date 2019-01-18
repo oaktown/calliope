@@ -33,3 +33,6 @@ tmp
 
 # Log files
 *.log
+
+# docker-compose
+docker-compose.yml
