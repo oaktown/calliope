@@ -13,6 +13,8 @@ import (
 )
 
 // number of seconds to wait before retrying (multiplied by number of retries)
+//    10s was too short for API rate limiting to recover,
+//   60s may be longer than needed
 const RetryWaitInterval = 60
 
 type Downloader struct {
@@ -282,7 +284,7 @@ func GmailToMessage(gmail gmail.Message, inboxUrl string, downloaded time.Time) 
 
 func (d *Downloader) tryThrice(fn func() error) error {
   var err error
-  for count := 0; count < 3; count++ {
+  for count := 1; count < =3; count++ {
     err = fn()
     if err == nil {
       break
@@ -293,7 +295,7 @@ func (d *Downloader) tryThrice(fn func() error) error {
       if count == 2 {
         return err
       }
-      secs := time.Duration(count+1) * time.Second * RetryWaitInterval
+      secs := time.Duration(count) * time.Second * RetryWaitInterval
       d.clock.Sleep(secs)
     } else {
       // If it's something else, we don't know how to deal with it, so just pass on the error
