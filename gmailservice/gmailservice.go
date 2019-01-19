@@ -77,7 +77,8 @@ func DownloadLabels(d Downloader) []*store.Label {
   request := d.Svc.Users.Labels.List("me")
   response, err := request.Do()
   if (err != nil) {
-    log.Fatal(err);   // TODO: need better error handling
+    // TODO: need better error handling
+    log.Fatal("Error occurred downloading labels. Error: ", err);
   }
   var labels []*store.Label
   for _, l := range response.Labels {
@@ -284,7 +285,7 @@ func GmailToMessage(gmail gmail.Message, inboxUrl string, downloaded time.Time) 
 
 func (d *Downloader) tryThrice(fn func() error) error {
   var err error
-  for count := 1; count < =3; count++ {
+  for count := 1; count <= 3; count++ {
     err = fn()
     if err == nil {
       break
@@ -292,7 +293,7 @@ func (d *Downloader) tryThrice(fn func() error) error {
     code := err.(*googleapi.Error).Code
     // If we have exceeded API usage, API will return 429 or 403.
     if code == 429 || code == 403 {
-      if count == 2 {
+      if count == 3 {
         return err
       }
       secs := time.Duration(count) * time.Second * RetryWaitInterval
