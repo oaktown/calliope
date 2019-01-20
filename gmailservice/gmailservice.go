@@ -12,6 +12,11 @@ import (
   "time"
 )
 
+// number of seconds to wait before retrying (multiplied by number of retries)
+//    10s was too short for API rate limiting to recover,
+//   60s may be longer than needed
+const RetryWaitInterval = 60
+
 type Downloader struct {
   SearchChan     chan *gmail.Message
   MessageChan    chan *store.Message
@@ -50,7 +55,7 @@ func New(svc *gmail.Service, options Options, maxWorkers int) Downloader {
     doGet:          doGet,
     GmailToMessage: GmailToMessage,
     StartedAt:      time.Now(),
-    clock: clockwork.NewRealClock(),
+    clock:          clockwork.NewRealClock(),
   }
 }
 
@@ -70,7 +75,11 @@ func Download(d Downloader) []*store.Label {
 
 func DownloadLabels(d Downloader) []*store.Label {
   request := d.Svc.Users.Labels.List("me")
-  response, _ := request.Do()
+  response, err := request.Do()
+  if (err != nil) {
+    // TODO: need better error handling
+    log.Fatal("Error occurred downloading labels. Error: ", err);
+  }
   var labels []*store.Label
   for _, l := range response.Labels {
     label := &store.Label{
@@ -276,7 +285,7 @@ func GmailToMessage(gmail gmail.Message, inboxUrl string, downloaded time.Time) 
 
 func (d *Downloader) tryThrice(fn func() error) error {
   var err error
-  for count := 0; count < 3; count++ {
+  for count := 1; count <= 3; count++ {
     err = fn()
     if err == nil {
       break
@@ -284,10 +293,10 @@ func (d *Downloader) tryThrice(fn func() error) error {
     code := err.(*googleapi.Error).Code
     // If we have exceeded API usage, API will return 429 or 403.
     if code == 429 || code == 403 {
-      if count == 2 {
+      if count == 3 {
         return err
       }
-      secs := time.Duration(10*(count+1)) * time.Second
+      secs := time.Duration(count) * time.Second * RetryWaitInterval
       d.clock.Sleep(secs)
     } else {
       // If it's something else, we don't know how to deal with it, so just pass on the error
