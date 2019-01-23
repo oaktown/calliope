@@ -1,5 +1,5 @@
 # let's not checkin the built executable
-calliope
+/calliope
 
 # Binaries for programs and plugins
 *.exe
