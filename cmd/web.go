@@ -40,10 +40,10 @@ func startServer() {
   fs := http.FileServer(http.Dir("public/assets"))
   http.Handle("/assets/", http.StripPrefix("/assets/", fs))
 
-  http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-    if r.URL.Path == "/" {
+  http.HandleFunc("/old", func(w http.ResponseWriter, r *http.Request) {
+    if r.URL.Path == "/old" {
       options:= getOptionsFromRequest(r)
-      web.ShowHomepage(r, w, options)
+      web.ShowOldHomePage(r, w, options)
     } else {
       fmt.Fprint(w, "Nothing to see here.")
     }
