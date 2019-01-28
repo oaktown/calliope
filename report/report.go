@@ -53,7 +53,8 @@ func GetReport(opt QueryOptions, svc *store.Service) Report {
       Participants(opt.Participants).
       BodyOrSubject(opt.BodyOrSubject).
       Size(opt.Size).
-      Sort(opt.SortField, opt.SortAscending)
+      Sort(opt.SortField, opt.SortAscending).
+      Starred(opt.Starred)
   }
 
   var reportBuffer bytes.Buffer
