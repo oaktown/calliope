@@ -84,7 +84,8 @@ func setupMessageSearch(opt QueryOptions, svc *store.Service) store.MessageSearc
       Participants(opt.Participants).
       BodyOrSubject(opt.BodyOrSubject).
       Size(opt.Size).
-      Sort(opt.SortField, opt.SortAscending)
+      Sort(opt.SortField, opt.SortAscending).
+      Starred(opt.Starred)
   }
   return messageSearch
 }
