@@ -35,13 +35,7 @@ type Message struct {
   Source              gmail.Message
 }
 
-type Label struct {
-  Id   string
-  Name string
-}
-
 const MailIndex = "mail"
-const LabelsIndex = "labels"
 
 // New returns Elastic initialized with elastic client
 func New(ctx context.Context) (*Service, error) {
@@ -97,40 +91,6 @@ func (s *Service) saveDoc(index string, id string, json string) (*elastic.IndexR
   return response, err
 }
 
-type LabelsDoc struct {
-  Id     string
-  Labels []*Label
-}
-
-func (s *Service) SaveLabels(labels []*Label) error {
-  doc := LabelsDoc{
-    Id:     "labels",
-    Labels: labels,
-  }
-  labelsJson, _ := json.MarshalIndent(doc, "", "\t")
-
-  if _, err := s.saveDoc(LabelsIndex, "labels", string(labelsJson)); err != nil {
-    return err
-  }
-
-  return nil
-}
-
-func (s *Service) GetLabels() ([]*Label, error) {
-  var doc LabelsDoc
-  query := elastic.NewTermQuery("Id", "labels")
-  result, _ := s.Client.Search().
-    Index(LabelsIndex).
-    Query(query).
-    Do(s.Ctx)
-  labelsJson := result.Hits.Hits[0].Source
-  if err := json.Unmarshal(*labelsJson, &doc); err != nil {
-    log.Println("Unable to unmarshal labels json. err: ", err)
-    return nil, err
-  }
-  return doc.Labels, nil
-}
-
 type MessageResponse struct {
   Message  Message
   Response *elastic.IndexResponse
@@ -156,7 +116,7 @@ func (s *Service) SaveMessage(data Message, responses chan<- *MessageResponse) e
 }
 
 func (s *Service) FindLabelId(labelName string) (string, error) {
-  labels, err := s.GetLabels()
+  labels, err := s.GetLabels(false)
   if err != nil {
     return "", errors.New("Could not get labels from Elasticsearch")
   }
