@@ -23,6 +23,21 @@ type Homepage struct {
   svc *store.Service
 }
 
+func ShowHomePage(r *http.Request, w http.ResponseWriter) {
+  t := template.Must(template.ParseFiles("templates/layout.html", "templates/homepage.html"))
+  data := HomepageData{
+    Title:       "Calliope Email Report",
+    Fields:      report.QueryOptions{},
+    Query:       "",
+    Report:      "",
+  }
+
+  if err := t.ExecuteTemplate(w, "layout", data); err != nil {
+    log.Println("Error occurred while executing homepage template: ", err)
+  }
+
+}
+
 func ShowOldHomePage(r *http.Request, w http.ResponseWriter, opts report.QueryOptions) {
   h := Homepage{
     r:   r,

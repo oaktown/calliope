@@ -5,9 +5,17 @@
         <meta charset="UTF-8">
         <title>{{.Title}}</title>
         <link href="/assets/c3.min.css" rel="stylesheet">
+        {{template "scripts" .}}
     </head>
     <body>
     {{template "content" .}}
     </body>
     </html>
+{{end}}
+
+
+{{define "scripts"}}
+{{end}}
+
+{{define "content"}}
 {{end}}

@@ -60,6 +60,15 @@ func startServer() {
     fmt.Fprint(w, string(reportJson))
   })
 
+  http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+    // TODO: Load Elm app
+    if r.URL.Path == "/" {
+      web.ShowHomePage(r, w)
+    } else {
+      fmt.Fprint(w, "Nothing to see here.")
+    }
+  })
+
   fmt.Printf("Starting web server: http://localhost:%s/\n\n", port)
   log.Fatal(http.ListenAndServe(":"+port, nil))
 }
