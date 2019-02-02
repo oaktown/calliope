@@ -40,10 +40,10 @@ Edit it to your needs. Then start up Elasticsearch:
 
 
 ```bash
-docker-compose up 
+docker-compose up
 ```
 
-This will download the docker images (if you don't have them already) and run Elasticsearch on port 9200. Note: The command above will run in the foreground where you will see logging output. You can stop the container with `ctrl-c`. If you want to run in the background instead, attach the `-d` flag. 
+This will download the docker images (if you don't have them already) and run Elasticsearch on port 9200. Note: The command above will run in the foreground where you will see logging output. You can stop the container with `ctrl-c`. If you want to run in the background instead, attach the `-d` flag.
 
 
 To test on the terminal:
@@ -111,7 +111,7 @@ go run main.go
 
 This command will display help.
 
-Note: One of the options for several commands is an url to open the thread in Gmail (not the specific email, just the thread that it's in). 
+Note: One of the options for several commands is an url to open the thread in Gmail (not the specific email, just the thread that it's in).
 By default, the url is `https://mail.google.com/mail/#inbox/<thread id>`, but if you are logged into more than one
 account, can pass in a modified url. For example:
 
@@ -177,8 +177,8 @@ go test -v ./...
 ```
 
 The `-v` option is optional; it provides more info and also ignores test cache. The `./..`
-means to run all tests. Alternatively, you can provide a path to the package (e.g. 
-`./gmailservice`).   
+means to run all tests. Alternatively, you can provide a path to the package (e.g.
+`./gmailservice`).
 
 Note: If you find a problematic email and want to download it locally e.g. to add as a test
 fixture, you can get it using curl:
@@ -191,22 +191,34 @@ Removing stuff you don't need for the test would be nice, too, as it would make 
 find relevant data in the fixture.
 
 ## Debugging
-   
-To debug, install [Delve](https://github.com/derekparker/delve). Follow the installation 
+
+To debug, install [Delve](https://github.com/derekparker/delve). Follow the installation
 instructions for your OS, then you can run it like:
 
 ```bash
 dlv debug main.go -- download -q "is:starred label:devchix" -l 10 -R
 ```
 
-Note: The `--` separates `dlv` commandline args from the commandline args of the program being debugged. 
+Note: The `--` separates `dlv` commandline args from the commandline args of the program being debugged.
 
 To debug tests that have fixtures, you will need to change the working directory:
 
 ```bash
 cd gmailservice
 dlv test . -- -test.v
-``` 
+```
 
-If you don't change working directories, it'll have trouble finding fixture. Also, `./..` 
+If you don't change working directories, it'll have trouble finding fixture. Also, `./..`
 from the project root doesn't work.
+
+## Contributing
+
+All changes via Pull Request, someone who is not the author should provide
+feedback and approve changes.
+
+If the author is a committer, then leave the PR merge to them.  Committers
+should rebase and squash before merging to master.
+
+
+
+
