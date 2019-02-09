@@ -10,7 +10,7 @@ import (
   "log"
 )
 
-type Report struct {
+type HtmlReport struct {
   Html  template.HTML
   Query string
 }
@@ -42,7 +42,38 @@ type HtmlData struct {
   Messages  []*store.Message
 }
 
-func GetReport(opt QueryOptions, svc *store.Service) Report {
+type JsonReport struct {
+  Query     string
+  ChartData Chart
+  Messages  []*store.Message
+}
+
+func GetJsonReport(opt QueryOptions, svc *store.Service) JsonReport {
+  search := setupMessageSearch(opt, svc)
+  messages, _ := search.Do()
+  chartData := getChartData(messages)
+
+  return JsonReport{
+    Query:     search.QueryString(),
+    ChartData: chartData,
+    Messages:  messages,
+  }
+}
+
+func GetHtmlReport(opt QueryOptions, svc *store.Service) HtmlReport {
+  messageSearch := setupMessageSearch(opt, svc)
+
+  var reportBuffer bytes.Buffer
+  Render(&reportBuffer, messageSearch, opt.InboxUrl)
+  reportHtml := template.HTML(reportBuffer.String())
+
+  return HtmlReport{
+    Query: messageSearch.QueryString(),
+    Html:  reportHtml,
+  }
+}
+
+func setupMessageSearch(opt QueryOptions, svc *store.Service) store.MessageSearch {
   var messageSearch store.MessageSearch
   if opt.Query != "" {
     messageSearch = svc.NewRawMessageSearch(opt.Query)
@@ -55,15 +86,7 @@ func GetReport(opt QueryOptions, svc *store.Service) Report {
       Size(opt.Size).
       Sort(opt.SortField, opt.SortAscending)
   }
-
-  var reportBuffer bytes.Buffer
-  Render(&reportBuffer, messageSearch, opt.InboxUrl)
-  reportHtml := template.HTML(reportBuffer.String())
-
-  return Report{
-    Query: messageSearch.QueryString(),
-    Html:  reportHtml,
-  }
+  return messageSearch
 }
 
 func Render(wr io.Writer, messageSearch store.MessageSearch, inboxUrl string) {
