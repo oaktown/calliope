@@ -1,6 +1,9 @@
 module BarGraph exposing (barGraph)
 
--- Adapted from elm-visualization examples
+-- Adapted from elm-visualization examples. Only differences are:
+-- - Everything is wrapped in `barGraph` so that you can create graph by passing in a `timeSeries`.
+-- - `maxY` was added so that `yScale` would change depending on the values of the passed in data (it was using a hard-coded value)
+-- - Colors changed
 
 import Axis
 import DateFormat
