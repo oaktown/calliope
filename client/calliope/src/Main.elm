@@ -1,13 +1,16 @@
 module Main exposing (Model, Msg(..), RawSearchForm, RawSearchFormMsg(..), SearchForm, SearchFormMsg(..), formCheckBox, formField, formInput, init, main, subscriptions, update, updateRawSearchForm, updateSearchForm, view, viewRawSearchForm, viewSearchForm, viewSearchForms)
 
+import BarGraph exposing (barGraph)
 import Browser
 import Debug
 import Html exposing (Html, a, br, button, div, h1, h2, input, label, li, p, table, tbody, td, text, textarea, th, thead, tr, ul)
 import Html.Attributes exposing (checked, class, cols, href, id, name, placeholder, rows, scope, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Http
+import Iso8601
 import Json.Decode as Decode exposing (Decoder, field, int, list, string)
 import Json.Decode.Pipeline exposing (required)
+import Time
 import Url.Builder
 
 
@@ -382,7 +385,8 @@ viewSearchResults results inboxUrl =
         Ok searchResults ->
             if List.length searchResults.messages > 0 then
                 div []
-                    [ h1 [ id "ToC" ] [ text "Table of Contents" ]
+                    [ div [] [ barGraph (timeSeries searchResults.chartData) ]
+                    , h1 [ id "ToC" ] [ text "Table of Contents" ]
                     , toc searchResults.messages
                     , h2 [] [ text "Email messages" ]
                     , messagesView searchResults.messages
@@ -393,6 +397,26 @@ viewSearchResults results inboxUrl =
 
         Err e ->
             div [] [ text (Debug.toString e) ]
+
+
+timeSeries : List ChartDay -> List ( Time.Posix, Float )
+timeSeries data =
+    let
+        convert : ChartDay -> ( Time.Posix, Float )
+        convert t =
+            let
+                date =
+                    Iso8601.toTime t.date
+            in
+            case date of
+                Ok d ->
+                    ( d, toFloat t.messages )
+
+                -- need a better way of dealing with this
+                Err _ ->
+                    ( Time.millisToPosix 0, toFloat t.messages )
+    in
+    List.map convert data
 
 
 
