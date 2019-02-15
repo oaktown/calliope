@@ -40,10 +40,10 @@ func startServer() {
   fs := http.FileServer(http.Dir("public/assets"))
   http.Handle("/assets/", http.StripPrefix("/assets/", fs))
 
-  http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-    if r.URL.Path == "/" {
+  http.HandleFunc("/old", func(w http.ResponseWriter, r *http.Request) {
+    if r.URL.Path == "/old" {
       options:= getOptionsFromRequest(r)
-      web.ShowHomepage(r, w, options)
+      web.ShowOldHomePage(r, w, options)
     } else {
       fmt.Fprint(w, "Nothing to see here.")
     }
@@ -60,6 +60,15 @@ func startServer() {
     fmt.Fprint(w, string(reportJson))
   })
 
+  http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+    // TODO: Load Elm app
+    if r.URL.Path == "/" {
+      web.ShowHomePage(r, w)
+    } else {
+      fmt.Fprint(w, "Nothing to see here.")
+    }
+  })
+
   fmt.Printf("Starting web server: http://localhost:%s/\n\n", port)
   log.Fatal(http.ListenAndServe(":"+port, nil))
 }
@@ -69,7 +78,7 @@ func getOptionsFromRequest(r *http.Request) report.QueryOptions {
   if sortField = r.FormValue("sort"); sortField == "" {
     sortField = "Date"
   }
-  inboxUrl := r.FormValue("gmailurl")
+  inboxUrl := r.FormValue("gmailUrl")
   if inboxUrl == "" {
     inboxUrl = "https://mail.google.com/mail/"
   }
