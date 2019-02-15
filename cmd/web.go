@@ -78,7 +78,7 @@ func getOptionsFromRequest(r *http.Request) report.QueryOptions {
   if sortField = r.FormValue("sort"); sortField == "" {
     sortField = "Date"
   }
-  inboxUrl := r.FormValue("gmailurl")
+  inboxUrl := r.FormValue("gmailUrl")
   if inboxUrl == "" {
     inboxUrl = "https://mail.google.com/mail/"
   }
