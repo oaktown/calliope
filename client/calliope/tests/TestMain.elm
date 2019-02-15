@@ -36,7 +36,7 @@ all =
                         3600 * 1000 * 24
 
                     jan date =
-                        millisToPosix ((daysFromEpochTo2019 * 3600 * 1000 * 24) + (millisInDay * (date - 1)))
+                        millisToPosix <| (daysFromEpochTo2019 * 3600 * 1000 * 24) + (millisInDay * (date - 1))
 
                     expected =
                         [ ( jan 1, 1.0 )
@@ -110,5 +110,5 @@ all =
                         Expect.equal decoded expected
 
                     Err e ->
-                        Expect.fail ("Problem decoding test data" ++ Decode.errorToString e)
+                        Expect.fail <| "Problem decoding test data" ++ Decode.errorToString e
         ]

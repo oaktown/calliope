@@ -156,10 +156,18 @@ update msg model =
             ( { model | gmailUrl = gmailUrl }, Cmd.none )
 
         UpdateRawSearch field ->
-            ( { model | rawSearchForm = updateRawSearchForm field model.rawSearchForm }, Cmd.none )
+            ( { model
+                | rawSearchForm = updateRawSearchForm field model.rawSearchForm
+              }
+            , Cmd.none
+            )
 
         UpdateSearch field ->
-            ( { model | searchForm = updateSearchForm field model.searchForm }, Cmd.none )
+            ( { model
+                | searchForm = updateSearchForm field model.searchForm
+              }
+            , Cmd.none
+            )
 
         DoSearch ->
             ( model, doSearch model.searchForm )
@@ -177,7 +185,12 @@ update msg model =
                         updatedRawSearchForm =
                             { rawSearchForm | query = searchResults.query }
                     in
-                    ( { model | searchResults = results, rawSearchForm = updatedRawSearchForm }, Cmd.none )
+                    ( { model
+                        | searchResults = results
+                        , rawSearchForm = updatedRawSearchForm
+                      }
+                    , Cmd.none
+                    )
 
                 Err e ->
                     ( { model | searchResults = results }, Cmd.none )
@@ -481,9 +494,7 @@ doRawSearch rawSearchForm =
             Url.Builder.string
 
         url =
-            Url.Builder.absolute [ "api", "search" ]
-                [ string "query" rawSearchForm.query
-                ]
+            Url.Builder.absolute [ "api", "search" ] [ string "query" rawSearchForm.query ]
     in
     Http.get
         { url = url
