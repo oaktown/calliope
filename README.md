@@ -96,14 +96,23 @@ setup instructions.
 
 ### Setup Elm
 
-Install Elm using homebrew: and `create-elm-app` using npm (or alternative, like yarn):
+We are using Elm 0.19. Install Elm using homebrew and [create-elm-app](https://github.com/halfzebra/create-elm-app) and [elm-format](https://github.com/avh4/elm-format) using npm (or alternative, like yarn):
 ```bash
 brew install elm
 elm --version # Should return 0.19 or higher
-npm install create-elm-app
+npm install -g create-elm-app # Make sure you are running Node version >=8
+npm install -g elm-format
 ```
 
 Elm code is in `client/calliope`.
+
+We use `create-elm-app` to serve the app in developer mode (including proxying to the API server). It also can create an optimized build for production.
+
+We use `elm-format` to format code. It's recommended you use an editor/IDE that can call `elm-format` for you, such as:
+- [IntelliJ](https://plugins.jetbrains.com/plugin/10268-elm) (including GoLand). You'll want to follow the instructions on [elm-format](https://github.com/klazuka/intellij-elm/blob/master/docs/elm-format/setup.md) (this will be automated in the future)
+- [Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=sbrink.elm)
+
+Additional configuration may be necessary to use `elm-format` with the above.
 
 ## Build and run the app
 
@@ -208,7 +217,10 @@ curl -XDELETE localhost:9200/mail
 ```
 
 ## Unit tests
-To run tests:
+We have unit tests for both Go and Elm. 
+
+### Go unit tests
+To run Go unit tests:
 
 ```bash
 go test -v ./...
@@ -228,8 +240,17 @@ curl localhost:9200/mail/document/<id> > fixture.json
 Removing stuff you don't need for the test would be nice, too, as it would make it easier to
 find relevant data in the fixture.
 
+### Elm unit tests
+To run Elm unit tests:
+```bash
+cd client/calliope
+elm-app test
+```
+
+
 ## Debugging
 
+### Debugging Go   
 To debug, install [Delve](https://github.com/derekparker/delve). Follow the installation
 instructions for your OS, then you can run it like:
 
@@ -248,6 +269,10 @@ dlv test . -- -test.v
 
 If you don't change working directories, it'll have trouble finding fixture. Also, `./..`
 from the project root doesn't work.
+
+### Debugging Elm
+
+When you run the app using `elm-app start`, you can access the debugger through the `Explore History` widget at the bottom. More info on the debugger in this [blog post from Elm creator Evan Czaplicki](https://elm-lang.org/blog/the-perfect-bug-report).
 
 ## Contributing
 
