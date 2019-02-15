@@ -3,10 +3,11 @@ Email query and visualization for observation and study of wild email monsters
 
 ![angry faced envelope with arms waving](images/email_monster.png)
 
-## Setting up Go and cloning the repo
+## Setting up Development Environment
 
-### Mac
-Install using homebrew:
+Calliope's backend is written in Go. This includes the CLI and an API server. The front-end is written in Elm. The following instructions are for developing with Macs.
+
+Install go using homebrew:
 
 ```
 brew install go
@@ -93,6 +94,17 @@ There's a Chrome extension called [ElasticSearch Head](https://chrome.google.com
 We were inspired by https://github.com/vcollak/GmailContacts, which has nice
 setup instructions.
 
+### Setup Elm
+
+Install Elm using homebrew: and `create-elm-app` using npm (or alternative, like yarn):
+```bash
+brew install elm
+elm --version # Should return 0.19 or higher
+npm install create-elm-app
+```
+
+Elm code is in `client/calliope`.
+
 ## Build and run the app
 
 When building the app `-i` will build all the dependencies and `-v` prints
@@ -127,6 +139,32 @@ go run main.go download -l 1000 -d "2018/01/01" -u "https://mail.google.com/mail
 ```
 
 will link to the 3rd logged in account. See also [Debugging](#debugging), below.
+
+After you've downloaded messages, you can run the server:
+
+```bash
+go run main.go web
+```
+
+This should start listening on port 8080.
+
+Now start the front-end:
+
+```bash
+cd client/calliope
+elm-app start
+```
+
+You should then be able to visit the app on port 3000.
+
+Test to make sure that the development web app is proxying correctly to the backend:
+
+```bash
+ curl -X GET -H "Content-type: application/json" -H "Accept: application/json"  http://localhost:3000/api/search
+
+``` 
+
+**Note:** `create-elm-app` starts a web server that auto-compiles your Elm code. It supports hot-module reloading, so as you make changes to the code, it should be reflected in the app. It connects the Elm app to the API server by proxying. See [create-elm-app docs](https://github.com/halfzebra/create-elm-app/blob/master/template/README.md#setting-up-api-proxy) for more information.
 
 ### Config
 
