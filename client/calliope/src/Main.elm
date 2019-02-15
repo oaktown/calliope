@@ -214,7 +214,7 @@ updateSearchForm msg model =
                     { model | size = int }
 
                 Nothing ->
-                    model
+                    { model | size = 0 }
 
 
 
