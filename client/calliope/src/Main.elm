@@ -167,8 +167,20 @@ update msg model =
         DoRawSearch ->
             ( model, doRawSearch model.rawSearchForm )
 
-        GotSearch searchResults ->
-            ( { model | searchResults = searchResults }, Cmd.none )
+        GotSearch results ->
+            case results of
+                Ok searchResults ->
+                    let
+                        rawSearchForm =
+                            model.rawSearchForm
+
+                        updatedRawSearchForm =
+                            { rawSearchForm | query = searchResults.query }
+                    in
+                    ( { model | searchResults = results, rawSearchForm = updatedRawSearchForm }, Cmd.none )
+
+                Err e ->
+                    ( { model | searchResults = results }, Cmd.none )
 
 
 updateRawSearchForm : RawSearchFormMsg -> RawSearchForm -> RawSearchForm
