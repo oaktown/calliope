@@ -3,6 +3,7 @@ module Main exposing (ChartDay, Message, Model, Msg(..), RawSearchForm, RawSearc
 import BarGraph exposing (barGraph)
 import Browser
 import Debug
+import Element as E
 import Html exposing (Html, a, br, button, div, h1, h2, input, label, li, p, table, tbody, td, text, textarea, th, thead, tr, ul)
 import Html.Attributes exposing (checked, class, cols, href, id, name, placeholder, rows, scope, type_, value)
 import Html.Events exposing (onClick, onInput)
@@ -54,7 +55,8 @@ type alias Model =
     { gmailUrl : String
     , searchForm : SearchForm
     , rawSearchForm : RawSearchForm
-    , searchResults : Result Http.Error SearchResults
+    , searchResults : SearchResults
+    , searchStatus : SearchStatus
     }
 
 
@@ -77,6 +79,13 @@ type alias ChartDay =
     { date : String
     , messages : Int
     }
+
+
+type SearchStatus
+    = Empty
+    | Loading
+    | Success
+    | Failure String
 
 
 type alias SearchResults =
@@ -108,12 +117,13 @@ init _ =
 }"""
 
         emptySearchResults =
-            Ok (SearchResults "" [] [])
+            SearchResults "" [] []
     in
     ( { gmailUrl = "https://mail.google.com/mail/"
       , searchForm = defaultSearchForm
       , rawSearchForm = defaultRawSearchForm
       , searchResults = emptySearchResults
+      , searchStatus = Empty
       }
     , Cmd.none
     )
@@ -170,10 +180,10 @@ update msg model =
             )
 
         DoSearch ->
-            ( model, doSearch model.searchForm )
+            ( { model | searchStatus = Loading }, doSearch model.searchForm )
 
         DoRawSearch ->
-            ( model, doRawSearch model.rawSearchForm )
+            ( { model | searchStatus = Loading }, doRawSearch model.rawSearchForm )
 
         GotSearch results ->
             case results of
@@ -186,14 +196,15 @@ update msg model =
                             { rawSearchForm | query = searchResults.query }
                     in
                     ( { model
-                        | searchResults = results
+                        | searchResults = searchResults
                         , rawSearchForm = updatedRawSearchForm
+                        , searchStatus = Success
                       }
                     , Cmd.none
                     )
 
                 Err e ->
-                    ( { model | searchResults = results }, Cmd.none )
+                    ( { model | searchStatus = Failure (Debug.toString e) }, Cmd.none )
 
 
 updateRawSearchForm : RawSearchFormMsg -> RawSearchForm -> RawSearchForm
@@ -259,7 +270,7 @@ view : Model -> Html Msg
 view model =
     div []
         [ div [] [ viewSearchForms model ]
-        , div [] [ viewSearchResults model.searchResults model.gmailUrl ]
+        , div [] [ viewSearchResults model.searchStatus model.searchResults model.gmailUrl ]
         ]
 
 
@@ -339,8 +350,8 @@ btn label msg =
     button [ onClick msg ] [ text label ]
 
 
-viewSearchResults : Result Http.Error SearchResults -> String -> Html Msg
-viewSearchResults results inboxUrl =
+viewSearchResults : SearchStatus -> SearchResults -> String -> Html Msg
+viewSearchResults status searchResults inboxUrl =
     let
         threadUrl =
             \id ->
@@ -406,8 +417,11 @@ viewSearchResults results inboxUrl =
                         ]
                     ]
     in
-    case results of
-        Ok searchResults ->
+    case status of
+        Loading ->
+            div [] [ text "Loading …" ]
+
+        Success ->
             if List.length searchResults.messages > 0 then
                 div []
                     [ div [] [ barGraph (timeSeries searchResults.chartData) ]
@@ -420,8 +434,11 @@ viewSearchResults results inboxUrl =
             else
                 div [] []
 
-        Err e ->
-            div [] [ text (Debug.toString e) ]
+        Failure e ->
+            div [] [ text <| "Search error:" ++ e ]
+
+        Empty ->
+            div [] []
 
 
 timeSeries : List ChartDay -> List ( Time.Posix, Float )
