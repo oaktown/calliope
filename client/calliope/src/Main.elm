@@ -295,7 +295,7 @@ view : Model -> Html Msg
 view model =
     div []
         [ div [] [ viewSearchForms model ]
-        , div [] [ viewSearchResults model.searchStatus model.searchResults model.gmailUrl ]
+        , div [] [ E.layout [] <| viewSearchResults model.searchStatus model.searchResults model.gmailUrl ]
         ]
 
 
@@ -375,15 +375,15 @@ btn label msg =
     button [ onClick msg ] [ text label ]
 
 
-viewSearchResults : SearchStatus -> SearchResults -> String -> Html Msg
+viewSearchResults : SearchStatus -> SearchResults -> String -> E.Element Msg
 viewSearchResults status searchResults inboxUrl =
     let
         threadUrl =
             \id ->
                 inboxUrl ++ "#inbox/" ++ id
 
-        toc : List Message -> Html Msg
-        toc messages =
+        messageSummaries : List Message -> E.Element Msg
+        messageSummaries messages =
             let
                 messageRows : List (E.Element Msg)
                 messageRows =
@@ -417,31 +417,28 @@ viewSearchResults status searchResults inboxUrl =
                             E.column [] [ summary, expanded ]
                     in
                     List.map row messages
-
-                messagePane =
-                    E.column [] messageRows
             in
-            E.layout [] messagePane
+            E.column [] messageRows
     in
     case status of
         Loading ->
-            div [] [ text "Loading …" ]
+            E.el [] (E.text "Loading …")
 
         Success ->
             if List.length searchResults.messages > 0 then
-                div []
-                    [ div [] [ barGraph (timeSeries searchResults.chartData) ]
-                    , toc searchResults.messages
+                E.column []
+                    [ E.el [ E.width (E.px 800), E.height E.fill ] (E.html <| div [ id "graph" ] [ barGraph (timeSeries searchResults.chartData) ])
+                    , messageSummaries searchResults.messages
                     ]
 
             else
-                div [] []
+                E.el [] (E.text "No messages found")
 
         Failure e ->
-            div [] [ text <| "Search error:" ++ e ]
+            E.el [] <| E.text ("Search error:" ++ e)
 
         Empty ->
-            div [] []
+            E.none
 
 
 timeSeries : List ChartDay -> List ( Time.Posix, Float )
