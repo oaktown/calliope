@@ -4,6 +4,7 @@ import BarGraph exposing (barGraph)
 import Browser
 import Debug
 import Element as E
+import Element.Events as Ev
 import Element.Font as Font
 import Html exposing (Html, a, br, button, div, h1, h2, input, label, li, p, table, tbody, td, text, textarea, th, thead, tr, ul)
 import Html.Attributes exposing (checked, class, cols, href, id, name, placeholder, rows, scope, type_, value)
@@ -11,7 +12,7 @@ import Html.Events exposing (onClick, onInput)
 import Http
 import Iso8601
 import Json.Decode as Decode exposing (Decoder, field, int, list, string)
-import Json.Decode.Pipeline exposing (required)
+import Json.Decode.Pipeline exposing (hardcoded, required)
 import Time
 import Url.Builder
 
@@ -73,6 +74,7 @@ type alias Message =
     , subject : String
     , snippet : String
     , body : String
+    , expanded : Bool
     }
 
 
@@ -158,6 +160,7 @@ type Msg
     | DoSearch
     | DoRawSearch
     | GotSearch (Result Http.Error SearchResults)
+    | Toggle String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -179,6 +182,27 @@ update msg model =
               }
             , Cmd.none
             )
+
+        Toggle id ->
+            let
+                toggle message =
+                    if message.id == id then
+                        { message | expanded = not message.expanded }
+
+                    else
+                        message
+
+                messages =
+                    List.map toggle model.searchResults.messages
+
+                searchResults =
+                    let
+                        oldSearchResults =
+                            model.searchResults
+                    in
+                    { oldSearchResults | messages = messages }
+            in
+            ( { model | searchResults = searchResults }, Cmd.none )
 
         DoSearch ->
             ( { model | searchStatus = Loading }, doSearch model.searchForm )
@@ -358,80 +382,46 @@ viewSearchResults status searchResults inboxUrl =
             \id ->
                 inboxUrl ++ "#inbox/" ++ id
 
-        summaryRow =
-            \message ->
-                tr []
-                    [ td [] [ text message.date ]
-                    , td [] [ text message.from ]
-                    , td [] [ a [ href (threadUrl message.threadId) ] [ text "Gmail" ] ]
-                    , td [] [ a [ href ("#" ++ message.id) ] [ text "Jump" ] ]
-                    , td [] [ text message.subject ]
-                    ]
-
         toc : List Message -> Html Msg
         toc messages =
             let
-                messagePane =
-                    E.table [ E.spacingXY 20 5 ]
-                        { data = messages
-                        , columns =
-                            [ { header = E.text "Date"
-                              , width = E.fill
-                              , view =
-                                    \message ->
-                                        E.text message.date
-                              }
-                            , { header = E.text "From"
-                              , width = E.px 300
-                              , view =
-                                    \message ->
-                                        E.paragraph [ E.clip ] [ E.text message.from ]
-                              }
-                            , { header = E.text "Message"
-                              , width = E.fill
-                              , view =
-                                    \message ->
-                                        E.row []
+                messageRows : List (E.Element Msg)
+                messageRows =
+                    let
+                        row : Message -> E.Element Msg
+                        row message =
+                            let
+                                summary =
+                                    E.row [ E.spacingXY 20 5, Ev.onClick (Toggle message.id) ]
+                                        [ E.el [ E.width (E.px 280) ] (E.text message.date)
+                                        , E.el [ E.width (E.px 300), E.clip ] (E.text message.from)
+                                        , E.row []
                                             [ E.el [] <| E.text message.subject
                                             , E.el [ Font.color <| E.rgba255 120 120 120 50 ] <| E.text <| " – " ++ message.snippet
                                             ]
-                              }
-                            ]
-                        }
+                                        ]
+
+                                expanded =
+                                    if message.expanded then
+                                        E.column []
+                                            [ E.link [ Font.color (E.rgb255 30 30 200) ]
+                                                { url = threadUrl message.threadId
+                                                , label = E.text "Open in Gmail"
+                                                }
+                                            , E.el [] (E.text message.body)
+                                            ]
+
+                                    else
+                                        E.none
+                            in
+                            E.column [] [ summary, expanded ]
+                    in
+                    List.map row messages
+
+                messagePane =
+                    E.column [] messageRows
             in
             E.layout [] messagePane
-
-        messagesView =
-            \messages ->
-                div [] (List.map messageView messages)
-
-        messageView =
-            \message ->
-                let
-                    row =
-                        \label value ->
-                            tr []
-                                [ th [ scope "row" ] [ text label ]
-                                , td [] [ text value ]
-                                ]
-                in
-                li []
-                    [ table [ id message.id ]
-                        [ row "Date" message.date
-                        , row "From" message.from
-                        , row "To" message.to
-                        , row "Cc" message.cc
-                        , row "Subject" message.subject
-                        ]
-                    , div [] [ text message.body ]
-                    , ul []
-                        [ li []
-                            [ a [ href "#ToC" ] [ text "ToC" ]
-                            ]
-                        , li []
-                            [ a [ href (threadUrl message.threadId) ] [ text "Gmail" ] ]
-                        ]
-                    ]
     in
     case status of
         Loading ->
@@ -441,10 +431,7 @@ viewSearchResults status searchResults inboxUrl =
             if List.length searchResults.messages > 0 then
                 div []
                     [ div [] [ barGraph (timeSeries searchResults.chartData) ]
-                    , h1 [ id "ToC" ] [ text "Table of Contents" ]
                     , toc searchResults.messages
-                    , h2 [] [ text "Email messages" ]
-                    , messagesView searchResults.messages
                     ]
 
             else
@@ -553,6 +540,7 @@ messageDecoder =
         |> required "Subject" string
         |> required "Snippet" string
         |> required "Body" string
+        |> hardcoded False
 
 
 chartDayDecoder : Decoder ChartDay
