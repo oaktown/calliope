@@ -4,6 +4,7 @@ import BarGraph exposing (barGraph)
 import Browser
 import Debug
 import Element as E
+import Element.Font as Font
 import Html exposing (Html, a, br, button, div, h1, h2, input, label, li, p, table, tbody, td, text, textarea, th, thead, tr, ul)
 import Html.Attributes exposing (checked, class, cols, href, id, name, placeholder, rows, scope, type_, value)
 import Html.Events exposing (onClick, onInput)
@@ -367,23 +368,38 @@ viewSearchResults status searchResults inboxUrl =
                     , td [] [ text message.subject ]
                     ]
 
-        toc =
-            \messages ->
-                div []
-                    [ table []
-                        [ thead []
-                            [ tr []
-                                [ th [] [ text "Date" ]
-                                , th [] [ text "From" ]
-                                , th [] [ text "Gmail" ]
-                                , th [] [ text "Jump" ]
-                                , th [] [ text "Subject" ]
-                                ]
+        toc : List Message -> Html Msg
+        toc messages =
+            let
+                messagePane =
+                    E.table [ E.spacingXY 20 5 ]
+                        { data = messages
+                        , columns =
+                            [ { header = E.text "Date"
+                              , width = E.fill
+                              , view =
+                                    \message ->
+                                        E.text message.date
+                              }
+                            , { header = E.text "From"
+                              , width = E.px 300
+                              , view =
+                                    \message ->
+                                        E.paragraph [ E.clip ] [ E.text message.from ]
+                              }
+                            , { header = E.text "Message"
+                              , width = E.fill
+                              , view =
+                                    \message ->
+                                        E.row []
+                                            [ E.el [] <| E.text message.subject
+                                            , E.el [ Font.color <| E.rgba255 120 120 120 50 ] <| E.text <| " – " ++ message.snippet
+                                            ]
+                              }
                             ]
-                        , tbody []
-                            (List.map summaryRow messages)
-                        ]
-                    ]
+                        }
+            in
+            E.layout [] messagePane
 
         messagesView =
             \messages ->
