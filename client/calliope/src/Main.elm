@@ -4,8 +4,11 @@ import BarGraph exposing (barGraph)
 import Browser
 import Debug
 import Element as E
+import Element.Background as Background
+import Element.Border as Border
 import Element.Events as Ev
 import Element.Font as Font
+import Element.Input as Input
 import Html exposing (Html, a, br, button, div, h1, h2, input, label, li, p, table, tbody, td, text, textarea, th, thead, tr, ul)
 import Html.Attributes exposing (checked, class, cols, href, id, name, placeholder, rows, scope, type_, value)
 import Html.Events exposing (onClick, onInput)
@@ -305,7 +308,7 @@ viewSearchForms model =
         [ formInput "gmailurl" "gmailurl" model.gmailUrl UpdateGmailUrl
         , viewSearchForm model.searchForm
         , div [] [ p [] [ text "OR" ] ]
-        , viewRawSearchForm model.rawSearchForm
+        , E.layout [] (viewRawSearchForm model.rawSearchForm)
         ]
 
 
@@ -331,19 +334,30 @@ viewSearchForm model =
         ]
 
 
-viewRawSearchForm : RawSearchForm -> Html Msg
+viewRawSearchForm : RawSearchForm -> E.Element Msg
 viewRawSearchForm model =
-    let
-        rawSearchFormMessage : (String -> RawSearchFormMsg) -> (String -> Msg)
-        rawSearchFormMessage fn =
-            \str -> UpdateRawSearch (fn str)
-
-        queryField =
-            textarea [ rows 12, cols 120, name "query", value model.query, onInput (rawSearchFormMessage Query) ] []
-    in
-    div []
-        [ formField "Query:" queryField
-        , btn "raw query" DoRawSearch
+    E.column
+        []
+        [ Input.multiline
+            [ E.height E.shrink
+            , Border.solid
+            , Border.width 5
+            , Border.rounded 30
+            , Border.color <| E.rgb255 200 200 200
+            , Background.color <| E.rgb255 200 30 30
+            ]
+            { onChange = \str -> UpdateRawSearch (Query str)
+            , text = model.query
+            , placeholder = Nothing
+            , label = Input.labelAbove [] (E.text "Query")
+            , spellcheck = False
+            }
+        , Input.button
+            []
+            { onPress = Just DoRawSearch
+            , label = E.text "Raw query"
+            }
+        , E.el [ Border.color <| E.rgb255 200 200 200 ] (E.text "hi")
         ]
 
 
