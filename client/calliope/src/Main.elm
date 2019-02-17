@@ -296,19 +296,19 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    div []
-        [ div [] [ viewSearchForms model ]
-        , div [] [ E.layout [] <| viewSearchResults model.searchStatus model.searchResults model.gmailUrl ]
-        ]
+    E.layout [] <| E.column [] [ viewSearchForms model, viewSearchResults model.searchStatus model.searchResults model.gmailUrl ]
 
 
-viewSearchForms : Model -> Html Msg
+viewSearchForms : Model -> E.Element Msg
 viewSearchForms model =
-    div [ class "search-form" ]
-        [ formInput "gmailurl" "gmailurl" model.gmailUrl UpdateGmailUrl
-        , viewSearchForm model.searchForm
-        , div [] [ p [] [ text "OR" ] ]
-        , E.layout [] (viewRawSearchForm model.rawSearchForm)
+    E.column []
+        [ E.html <|
+            div [ class "search-form" ]
+                [ formInput "gmailurl" "gmailurl" model.gmailUrl UpdateGmailUrl
+                , viewSearchForm model.searchForm
+                , div [] [ p [] [ text "OR" ] ]
+                ]
+        , viewRawSearchForm model.rawSearchForm
         ]
 
 
@@ -339,13 +339,7 @@ viewRawSearchForm model =
     E.column
         []
         [ Input.multiline
-            [ E.height E.shrink
-            , Border.solid
-            , Border.width 5
-            , Border.rounded 30
-            , Border.color <| E.rgb255 200 200 200
-            , Background.color <| E.rgb255 200 30 30
-            ]
+            [ E.height E.shrink ]
             { onChange = \str -> UpdateRawSearch (Query str)
             , text = model.query
             , placeholder = Nothing
@@ -353,11 +347,15 @@ viewRawSearchForm model =
             , spellcheck = False
             }
         , Input.button
-            []
+            [ Border.width 1
+            , Border.color <| E.rgb255 220 220 220
+            , Border.rounded 5
+            , Font.size 12
+            , E.padding 3
+            ]
             { onPress = Just DoRawSearch
             , label = E.text "Raw query"
             }
-        , E.el [ Border.color <| E.rgb255 200 200 200 ] (E.text "hi")
         ]
 
 
