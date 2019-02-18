@@ -1,4 +1,4 @@
-module Main exposing (ChartDay, Message, Model, Msg(..), RawSearchForm, RawSearchFormMsg(..), SearchForm, SearchFormMsg(..), SearchResults, formCheckBox, formField, formInput, init, main, searchResultsDecoder, subscriptions, timeSeries, update, updateRawSearchForm, updateSearchForm, view, viewRawSearchForm, viewSearchForm, viewSearchForms)
+module Main exposing (ChartDay, Message, Model, Msg(..), RawSearchForm, RawSearchFormMsg(..), SearchForm, SearchFormMsg(..), SearchResults, init, main, searchResultsDecoder, subscriptions, timeSeries, update, updateRawSearchForm, updateSearchForm, view, viewRawSearchForm, viewSearchForm, viewSearchForms)
 
 import BarGraph exposing (barGraph)
 import Browser
@@ -9,9 +9,8 @@ import Element.Border as Border
 import Element.Events as Ev
 import Element.Font as Font
 import Element.Input as Input
-import Html exposing (Html, a, br, button, div, h1, h2, input, label, li, p, table, tbody, td, text, textarea, th, thead, tr, ul)
-import Html.Attributes exposing (checked, class, cols, href, id, name, placeholder, rows, scope, type_, value)
-import Html.Events exposing (onClick, onInput)
+import Html exposing (Html)
+import Html.Attributes as Attributes
 import Http
 import Iso8601
 import Json.Decode as Decode exposing (Decoder, field, int, list, string)
@@ -296,41 +295,115 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    E.layout [] <| E.column [] [ viewSearchForms model, viewSearchResults model.searchStatus model.searchResults model.gmailUrl ]
+    E.layout [ Font.size 12 ] <|
+        E.column [] [ viewSearchForms model, viewSearchResults model.searchStatus model.searchResults model.gmailUrl ]
+
+
+spacing =
+    20
 
 
 viewSearchForms : Model -> E.Element Msg
 viewSearchForms model =
-    E.column []
-        [ E.html <|
-            div [ class "search-form" ]
-                [ formInput "gmailurl" "gmailurl" model.gmailUrl UpdateGmailUrl
-                , viewSearchForm model.searchForm
-                , div [] [ p [] [ text "OR" ] ]
-                ]
+    E.column [ E.spacing spacing ]
+        [ E.el [] <|
+            Input.text []
+                { onChange = \str -> UpdateGmailUrl str
+                , text = model.gmailUrl
+                , placeholder = Nothing
+                , label = Input.labelAbove [] (E.text "Gmail url:")
+                }
+        , viewSearchForm model.searchForm
+        , E.el [] <| E.paragraph [] [ E.text "OR" ]
         , viewRawSearchForm model.rawSearchForm
         ]
 
 
-viewSearchForm : SearchForm -> Html Msg
-viewSearchForm model =
+onOffSwitch checked =
     let
-        searchFormMessage : (a -> SearchFormMsg) -> (a -> Msg)
-        searchFormMessage fn =
-            \a -> UpdateSearch (fn a)
+        backgroundColor =
+            if checked then
+                E.rgb255 0 0 0
+
+            else
+                E.rgb255 255 255 255
     in
-    div []
-        [ formInput "participants" "Participants (applies to From:, To:, and CC:):" model.participants (searchFormMessage Participants)
-        , formInput "bodyOrSubject" "Body or subject:" model.bodyOrSubject (searchFormMessage BodyOrSubject)
-        , formInput "startDate" "Start date (\"YYYY-MM-DD\"):" model.startDate (searchFormMessage StartDate)
-        , formInput "endDate" "End date (\"YYYY-MM-DD\"):" model.endDate (searchFormMessage EndDate)
-        , formInput "timezone" "Time zone (e.g. -0800 for PST):" model.timeZone (searchFormMessage TimeZone)
-        , formInput "label" "Label:" model.label (searchFormMessage Label)
-        , formCheckBox "starred" "Starred only:" model.starredOnly (UpdateSearch StarredOnly)
-        , formInput "sort" "Sort field:" model.sortField (searchFormMessage SortField)
-        , formCheckBox "ascending" "Ascending:" model.ascending (UpdateSearch Ascending)
-        , formInput "size" "Size:" (String.fromInt model.size) (searchFormMessage Size)
-        , btn "query" DoSearch
+    E.el [ Border.solid, Border.color (E.rgb255 200 200 200), Border.width 1, Font.color backgroundColor, E.width (E.px 10), Background.color backgroundColor ] (E.text " ")
+
+
+viewSearchForm : SearchForm -> E.Element Msg
+viewSearchForm model =
+    E.column [ E.spacing spacing ]
+        [ Input.text []
+            { onChange = \str -> UpdateSearch (Participants str)
+            , text = model.participants
+            , placeholder = Nothing
+            , label = Input.labelAbove [] (E.text "Participants (applies to From:, To:, and CC:):")
+            }
+        , Input.text []
+            { onChange = \str -> UpdateSearch (BodyOrSubject str)
+            , text = model.bodyOrSubject
+            , placeholder = Nothing
+            , label = Input.labelAbove [] (E.text "Body or subject")
+            }
+        , Input.text []
+            { onChange = \str -> UpdateSearch (StartDate str)
+            , text = model.startDate
+            , placeholder = Nothing
+            , label = Input.labelAbove [] (E.text "Start date (\"YYYY-MM-DD\"):")
+            }
+        , Input.text []
+            { onChange = \str -> UpdateSearch (EndDate str)
+            , text = model.endDate
+            , placeholder = Nothing
+            , label = Input.labelAbove [] (E.text "End date (\"YYYY-MM-DD\"):")
+            }
+        , Input.text []
+            { onChange = \str -> UpdateSearch (TimeZone str)
+            , text = model.timeZone
+            , placeholder = Nothing
+            , label = Input.labelAbove [] (E.text "Time zone (e.g. -0800 for PST):")
+            }
+        , Input.text []
+            { onChange = \str -> UpdateSearch (Label str)
+            , text = model.label
+            , placeholder = Nothing
+            , label = Input.labelAbove [] (E.text "Label:")
+            }
+        , Input.checkbox []
+            { onChange = \b -> UpdateSearch StarredOnly
+            , icon = onOffSwitch
+            , checked = model.starredOnly
+            , label = Input.labelLeft [] (E.text "Starred only:")
+            }
+        , Input.text []
+            { onChange = \str -> UpdateSearch (SortField str)
+            , text = model.sortField
+            , placeholder = Nothing
+            , label = Input.labelAbove [] (E.text "Sort field:")
+            }
+        , Input.checkbox []
+            { onChange = \b -> UpdateSearch Ascending
+            , icon = onOffSwitch
+            , checked = model.ascending
+            , label = Input.labelLeft [] (E.text "Ascending:")
+            }
+        , Input.text []
+            { onChange = \str -> UpdateSearch (Size str)
+            , text = String.fromInt model.size
+            , placeholder = Nothing
+            , label = Input.labelAbove [] (E.text "Size:")
+            }
+        , Input.button
+            [ Border.width 1
+            , Border.color <| E.rgb255 220 220 220
+            , Border.rounded 5
+            , Font.size 12
+            , E.padding 3
+            ]
+            { onPress = Just DoSearch
+            , label = E.text "Query"
+            }
         ]
 
 
@@ -357,34 +430,6 @@ viewRawSearchForm model =
             , label = E.text "Raw query"
             }
         ]
-
-
-formInput : String -> String -> String -> (String -> msg) -> Html msg
-formInput fieldName labelText val msgFn =
-    let
-        f =
-            input [ name fieldName, placeholder fieldName, value val, onInput msgFn ] []
-    in
-    formField labelText f
-
-
-formCheckBox : String -> String -> Bool -> msg -> Html msg
-formCheckBox fieldName labelText val msg =
-    let
-        f =
-            input [ type_ "checkbox", name fieldName, checked val, onClick msg ] []
-    in
-    formField labelText f
-
-
-formField : String -> Html msg -> Html msg
-formField labelText f =
-    div [] [ label [] [ text labelText, br [] [], f ] ]
-
-
-btn : String -> Msg -> Html Msg
-btn label msg =
-    button [ onClick msg ] [ text label ]
 
 
 viewSearchResults : SearchStatus -> SearchResults -> String -> E.Element Msg
@@ -439,7 +484,7 @@ viewSearchResults status searchResults inboxUrl =
         Success ->
             if List.length searchResults.messages > 0 then
                 E.column []
-                    [ E.el [ E.width (E.px 800), E.height E.fill ] (E.html <| div [ id "graph" ] [ barGraph (timeSeries searchResults.chartData) ])
+                    [ E.el [ E.width (E.px 800), E.height E.fill ] (E.html <| Html.div [ Attributes.id "graph" ] [ barGraph (timeSeries searchResults.chartData) ])
                     , messageSummaries searchResults.messages
                     ]
 
