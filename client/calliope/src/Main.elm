@@ -4,6 +4,17 @@ import BarGraph exposing (barGraph)
 import Browser
 import Debug
 import Element as E
+    exposing
+        ( Element
+        , column
+        , el
+        , fill
+        , height
+        , padding
+        , rgb255
+        , row
+        , width
+        )
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Ev
@@ -295,23 +306,52 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    E.layout [ Font.size 12 ] <|
-        E.column [] [ viewSearchForms model, viewSearchResults model.searchStatus model.searchResults model.gmailUrl ]
+    E.layout
+        [ Font.size 12 ]
+    <|
+        column [ width fill ]
+            [ viewTopbar
+            , viewSearchForms model
+            , viewSearchResults model.searchStatus model.searchResults model.gmailUrl
+            ]
+
+
+appTitle : Element msg
+appTitle =
+    el
+        [ Font.color (rgb255 255 255 255)
+        , padding 20
+        , Font.size 20
+        ]
+        (E.text "Calliope")
+
+
+viewTopbar : Element msg
+viewTopbar =
+    row [ width fill, Background.color <| rgb255 92 99 118 ]
+        [ appTitle ]
 
 
 spacing =
     20
 
 
+inputTextStyle =
+    [ padding 6 ]
+
+
 viewSearchForms : Model -> E.Element Msg
 viewSearchForms model =
-    E.column [ E.spacing spacing ]
+    E.column
+        [ E.spacing spacing
+        , padding 20
+        ]
         [ E.el [] <|
-            Input.text []
+            Input.text inputTextStyle
                 { onChange = \str -> UpdateGmailUrl str
                 , text = model.gmailUrl
                 , placeholder = Nothing
-                , label = Input.labelAbove [] (E.text "Gmail url:")
+                , label = Input.labelAbove [] (E.text "Gmail url")
                 }
         , viewSearchForm model.searchForm
         , E.el [] <| E.paragraph [] [ E.text "OR" ]
@@ -336,7 +376,7 @@ viewSearchForm model =
     let
         searchField : (String -> SearchFormMsg) -> String -> String -> E.Element Msg
         searchField msg val label =
-            Input.text []
+            Input.text inputTextStyle
                 { onChange = \str -> UpdateSearch (msg str)
                 , text = val
                 , placeholder = Nothing
