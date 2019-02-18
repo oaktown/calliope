@@ -3,7 +3,10 @@ module Main exposing (ChartDay, Message, Model, Msg(..), RawSearchForm, RawSearc
 import BarGraph exposing (barGraph)
 import Browser
 import Debug
-import Element as E
+import Element as E exposing (Element, el, fill, row, column,
+                              width, height, padding, rgb255)
+import Element.Background as Background
+import Element.Border as Border
 import Element.Events as Ev
 import Element.Font as Font
 import Html exposing (Html, a, br, button, div, h1, h2, input, label, li, p, table, tbody, td, text, textarea, th, thead, tr, ul)
@@ -293,11 +296,25 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    div []
-        [ div [] [ viewSearchForms model ]
-        , div [] [ E.layout [] <| viewSearchResults model.searchStatus model.searchResults model.gmailUrl ]
-        ]
+    E.layout [] <|
+        column []
+            [ viewTopbar
+            , E.html <| viewSearchForms model
+            , viewSearchResults model.searchStatus model.searchResults model.gmailUrl
+            ]
 
+appTitle : Element msg
+appTitle =
+    el
+        [ Font.color (rgb255 255 255 255)
+        , padding 20
+        ]
+        (E.text "Calliope")
+
+viewTopbar : Element msg
+viewTopbar =
+    row [width fill, Background.color <| rgb255 92 99 118]
+        [ appTitle ]
 
 viewSearchForms : Model -> Html Msg
 viewSearchForms model =
