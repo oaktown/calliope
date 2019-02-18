@@ -333,67 +333,37 @@ onOffSwitch checked =
 
 viewSearchForm : SearchForm -> E.Element Msg
 viewSearchForm model =
+    let
+        searchField : (String -> SearchFormMsg) -> String -> String -> E.Element Msg
+        searchField msg val label =
+            Input.text []
+                { onChange = \str -> UpdateSearch (msg str)
+                , text = val
+                , placeholder = Nothing
+                , label = Input.labelAbove [] (E.text label)
+                }
+    in
     E.column [ E.spacing spacing ]
-        [ Input.text []
-            { onChange = \str -> UpdateSearch (Participants str)
-            , text = model.participants
-            , placeholder = Nothing
-            , label = Input.labelAbove [] (E.text "Participants (applies to From, To, and CC)")
-            }
-        , Input.text []
-            { onChange = \str -> UpdateSearch (BodyOrSubject str)
-            , text = model.bodyOrSubject
-            , placeholder = Nothing
-            , label = Input.labelAbove [] (E.text "Body or subject")
-            }
-        , Input.text []
-            { onChange = \str -> UpdateSearch (StartDate str)
-            , text = model.startDate
-            , placeholder = Nothing
-            , label = Input.labelAbove [] (E.text "Start date (\"YYYY-MM-DD\")")
-            }
-        , Input.text []
-            { onChange = \str -> UpdateSearch (EndDate str)
-            , text = model.endDate
-            , placeholder = Nothing
-            , label = Input.labelAbove [] (E.text "End date (\"YYYY-MM-DD\")")
-            }
-        , Input.text []
-            { onChange = \str -> UpdateSearch (TimeZone str)
-            , text = model.timeZone
-            , placeholder = Nothing
-            , label = Input.labelAbove [] (E.text "Time zone (e.g. -0800 for PST)")
-            }
-        , Input.text []
-            { onChange = \str -> UpdateSearch (Label str)
-            , text = model.label
-            , placeholder = Nothing
-            , label = Input.labelAbove [] (E.text "Label")
-            }
+        [ searchField Participants model.participants "Participants (applies to From, To, and CC)"
+        , searchField BodyOrSubject model.bodyOrSubject "Body or subject"
+        , searchField StartDate model.startDate "Start date (\"YYYY-MM-DD\")"
+        , searchField EndDate model.endDate "End date (\"YYYY-MM-DD\")"
+        , searchField TimeZone model.timeZone "Time zone (e.g. -0800 for PST)"
+        , searchField Label model.label "Label"
         , Input.checkbox []
             { onChange = \b -> UpdateSearch StarredOnly
             , icon = onOffSwitch
             , checked = model.starredOnly
             , label = Input.labelLeft [] (E.text "Starred only")
             }
-        , Input.text []
-            { onChange = \str -> UpdateSearch (SortField str)
-            , text = model.sortField
-            , placeholder = Nothing
-            , label = Input.labelAbove [] (E.text "Sort field")
-            }
+        , searchField SortField model.sortField "Sort field"
         , Input.checkbox []
             { onChange = \b -> UpdateSearch Ascending
             , icon = onOffSwitch
             , checked = model.ascending
             , label = Input.labelLeft [] (E.text "Ascending")
             }
-        , Input.text []
-            { onChange = \str -> UpdateSearch (Size str)
-            , text = String.fromInt model.size
-            , placeholder = Nothing
-            , label = Input.labelAbove [] (E.text "Size")
-            }
+        , searchField Size (String.fromInt model.size) "Size"
         , Input.button
             [ Border.width 1
             , Border.color <| E.rgb255 220 220 220
