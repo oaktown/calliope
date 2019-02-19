@@ -172,6 +172,7 @@ type Msg
     | UpdateSearch SearchFormMsg
     | DoSearch
     | DoRawSearch
+    | Collapse
     | GotSearch (Result Http.Error SearchResults)
     | Toggle String
 
@@ -207,6 +208,20 @@ update msg model =
 
                 messages =
                     List.map toggle model.searchResults.messages
+
+                searchResults =
+                    let
+                        oldSearchResults =
+                            model.searchResults
+                    in
+                    { oldSearchResults | messages = messages }
+            in
+            ( { model | searchResults = searchResults }, Cmd.none )
+
+        Collapse ->
+            let
+                messages =
+                    List.map (\message -> { message | expanded = False }) model.searchResults.messages
 
                 searchResults =
                     let
@@ -443,6 +458,21 @@ viewRawSearchForm model =
 viewSearchResults : SearchStatus -> SearchResults -> String -> E.Element Msg
 viewSearchResults status searchResults inboxUrl =
     let
+        expandAndCollapseButtons =
+            E.row []
+                [ Input.button
+                    [ Border.width 1
+                    , Border.color <| E.rgb255 220 220 220
+                    , Border.rounded 5
+                    , Font.size 12
+                    , E.padding 3
+                    ]
+                    { onPress = Just Collapse
+                    , label = E.text "Collapse all"
+                    }
+
+                ]
+
         threadUrl =
             \id ->
                 inboxUrl ++ "#inbox/" ++ id
@@ -497,6 +527,7 @@ viewSearchResults status searchResults inboxUrl =
             if List.length searchResults.messages > 0 then
                 E.column []
                     [ E.el [ E.width (E.px 800), E.height E.fill ] (E.html <| Html.div [ Attributes.id "graph" ] [ barGraph (timeSeries searchResults.chartData) ])
+                    , expandAndCollapseButtons
                     , messageSummaries searchResults.messages
                     ]
 
