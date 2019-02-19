@@ -72,6 +72,7 @@ type alias Model =
     , rawSearchForm : RawSearchForm
     , searchResults : SearchResults
     , searchStatus : SearchStatus
+    , showAdvancedSearch : Bool
     }
 
 
@@ -115,7 +116,7 @@ init : () -> ( Model, Cmd Msg )
 init _ =
     let
         defaultSearchForm =
-            SearchForm "" "" "" "" "" "" False "" False 100
+            SearchForm "" "" "" "" "" "" False "Date" False 100
 
         defaultRawSearchForm =
             RawSearchForm """{
@@ -140,6 +141,7 @@ init _ =
       , rawSearchForm = defaultRawSearchForm
       , searchResults = emptySearchResults
       , searchStatus = Empty
+      , showAdvancedSearch = False
       }
     , Cmd.none
     )
@@ -172,13 +174,26 @@ type Msg
     | UpdateSearch SearchFormMsg
     | DoSearch
     | DoRawSearch
-    | Collapse
+    | CollapseAll
+    | ToggleAdvancedSearch
     | GotSearch (Result Http.Error SearchResults)
     | Toggle String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        updateMessagesInSearchResults : (Message -> Message) -> SearchResults
+        updateMessagesInSearchResults updateMessage =
+            let
+                messages =
+                    List.map updateMessage model.searchResults.messages
+
+                searchResults =
+                    model.searchResults
+            in
+            { searchResults | messages = messages }
+    in
     case msg of
         UpdateGmailUrl gmailUrl ->
             ( { model | gmailUrl = gmailUrl }, Cmd.none )
@@ -197,6 +212,9 @@ update msg model =
             , Cmd.none
             )
 
+        ToggleAdvancedSearch ->
+            ( { model | showAdvancedSearch = not model.showAdvancedSearch }, Cmd.none )
+
         Toggle id ->
             let
                 toggle message =
@@ -205,32 +223,15 @@ update msg model =
 
                     else
                         message
-
-                messages =
-                    List.map toggle model.searchResults.messages
-
-                searchResults =
-                    let
-                        oldSearchResults =
-                            model.searchResults
-                    in
-                    { oldSearchResults | messages = messages }
             in
-            ( { model | searchResults = searchResults }, Cmd.none )
+            ( { model | searchResults = updateMessagesInSearchResults toggle }, Cmd.none )
 
-        Collapse ->
+        CollapseAll ->
             let
-                messages =
-                    List.map (\message -> { message | expanded = False }) model.searchResults.messages
-
-                searchResults =
-                    let
-                        oldSearchResults =
-                            model.searchResults
-                    in
-                    { oldSearchResults | messages = messages }
+                setCollapse message =
+                    { message | expanded = False }
             in
-            ( { model | searchResults = searchResults }, Cmd.none )
+            ( { model | searchResults = updateMessagesInSearchResults setCollapse }, Cmd.none )
 
         DoSearch ->
             ( { model | searchStatus = Loading }, doSearch model.searchForm )
@@ -355,6 +356,14 @@ inputTextStyle =
 
 viewSearchForms : Model -> E.Element Msg
 viewSearchForms model =
+    let
+        searchForm =
+            if model.showAdvancedSearch then
+                viewRawSearchForm model.rawSearchForm
+
+            else
+                viewSearchForm model.searchForm
+    in
     E.column
         [ E.spacing spacing
         , padding 20
@@ -366,9 +375,7 @@ viewSearchForms model =
                 , placeholder = Nothing
                 , label = Input.labelAbove [] (E.text "Gmail url")
                 }
-        , viewSearchForm model.searchForm
-        , E.el [] <| E.paragraph [] [ E.text "OR" ]
-        , viewRawSearchForm model.rawSearchForm
+        , searchForm
         ]
 
 
@@ -395,38 +402,81 @@ viewSearchForm model =
                 , placeholder = Nothing
                 , label = Input.labelAbove [] (E.text label)
                 }
+
+        columnAttrs =
+            [ E.spacing spacing, E.width (E.px 500), E.alignTop ]
+
+        leftSide =
+            E.column columnAttrs
+                [ searchField Participants model.participants "Participants (applies to From, To, and CC)"
+                , searchField StartDate model.startDate "Start date (\"YYYY-MM-DD\")"
+                , searchField EndDate model.endDate "End date (\"YYYY-MM-DD\")"
+                , searchField TimeZone model.timeZone "Time zone (e.g. -0800 for PST)"
+                ]
+
+        rightSide =
+            E.column (E.paddingXY 20 0 :: columnAttrs)
+                [ searchField BodyOrSubject model.bodyOrSubject "Body or subject"
+                , E.row [ E.width E.fill ]
+                    [ Input.text [ E.width (E.fillPortion 4) ]
+                        { onChange = \str -> UpdateSearch (Label str)
+                        , text = model.label
+                        , placeholder = Nothing
+                        , label = Input.labelAbove [] (E.text "Label")
+                        }
+                    , Input.checkbox [ E.width (E.fillPortion 1), E.paddingXY 20 0 ]
+                        { onChange = \b -> UpdateSearch StarredOnly
+                        , icon = onOffSwitch
+                        , checked = model.starredOnly
+                        , label = Input.labelLeft [] (E.text "Starred only")
+                        }
+                    ]
+                , E.row [ E.width E.fill ]
+                    [ Input.text [ E.width (E.fillPortion 4) ]
+                        { onChange = \str -> UpdateSearch (SortField str)
+                        , text = model.sortField
+                        , placeholder = Nothing
+                        , label = Input.labelAbove [] (E.text "Sort field")
+                        }
+                    , Input.checkbox [ E.width (E.fillPortion 1), E.paddingXY 20 0 ]
+                        { onChange = \b -> UpdateSearch Ascending
+                        , icon = onOffSwitch
+                        , checked = model.ascending
+                        , label = Input.labelLeft [] (E.text "Ascending")
+                        }
+                    ]
+                , searchField Size (String.fromInt model.size) "Size"
+                ]
+
+        formFields =
+            E.row [ E.width <| E.px 1200 ] [ leftSide, rightSide ]
+
+        buttons =
+            E.row []
+                [ Input.button
+                    [ Border.width 1
+                    , Border.color <| E.rgb255 220 220 220
+                    , Border.rounded 5
+                    , Font.size 12
+                    , E.padding 3
+                    ]
+                    { onPress = Just DoSearch
+                    , label = E.text "Query"
+                    }
+                , Input.button
+                    [ Border.width 1
+                    , Border.color <| E.rgb255 220 220 220
+                    , Border.rounded 5
+                    , Font.size 12
+                    , E.padding 3
+                    ]
+                    { onPress = Just ToggleAdvancedSearch
+                    , label = E.text "AdvancedSearch"
+                    }
+                ]
     in
-    E.column [ E.spacing spacing ]
-        [ searchField Participants model.participants "Participants (applies to From, To, and CC)"
-        , searchField BodyOrSubject model.bodyOrSubject "Body or subject"
-        , searchField StartDate model.startDate "Start date (\"YYYY-MM-DD\")"
-        , searchField EndDate model.endDate "End date (\"YYYY-MM-DD\")"
-        , searchField TimeZone model.timeZone "Time zone (e.g. -0800 for PST)"
-        , searchField Label model.label "Label"
-        , Input.checkbox []
-            { onChange = \b -> UpdateSearch StarredOnly
-            , icon = onOffSwitch
-            , checked = model.starredOnly
-            , label = Input.labelLeft [] (E.text "Starred only")
-            }
-        , searchField SortField model.sortField "Sort field"
-        , Input.checkbox []
-            { onChange = \b -> UpdateSearch Ascending
-            , icon = onOffSwitch
-            , checked = model.ascending
-            , label = Input.labelLeft [] (E.text "Ascending")
-            }
-        , searchField Size (String.fromInt model.size) "Size"
-        , Input.button
-            [ Border.width 1
-            , Border.color <| E.rgb255 220 220 220
-            , Border.rounded 5
-            , Font.size 12
-            , E.padding 3
-            ]
-            { onPress = Just DoSearch
-            , label = E.text "Query"
-            }
+    E.row []
+        [ E.column [] [ formFields, buttons ]
         ]
 
 
@@ -442,16 +492,28 @@ viewRawSearchForm model =
             , label = Input.labelAbove [] (E.text "Query")
             , spellcheck = False
             }
-        , Input.button
-            [ Border.width 1
-            , Border.color <| E.rgb255 220 220 220
-            , Border.rounded 5
-            , Font.size 12
-            , E.padding 3
+        , E.row []
+            [ Input.button
+                [ Border.width 1
+                , Border.color <| E.rgb255 220 220 220
+                , Border.rounded 5
+                , Font.size 12
+                , E.padding 3
+                ]
+                { onPress = Just DoRawSearch
+                , label = E.text "Raw query"
+                }
+            , Input.button
+                [ Border.width 1
+                , Border.color <| E.rgb255 220 220 220
+                , Border.rounded 5
+                , Font.size 12
+                , E.padding 3
+                ]
+                { onPress = Just ToggleAdvancedSearch
+                , label = E.text "Regular search"
+                }
             ]
-            { onPress = Just DoRawSearch
-            , label = E.text "Raw query"
-            }
         ]
 
 
@@ -467,10 +529,9 @@ viewSearchResults status searchResults inboxUrl =
                     , Font.size 12
                     , E.padding 3
                     ]
-                    { onPress = Just Collapse
+                    { onPress = Just CollapseAll
                     , label = E.text "Collapse all"
                     }
-
                 ]
 
         threadUrl =
