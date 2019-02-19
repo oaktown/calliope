@@ -1,15 +1,20 @@
-module Main exposing (ChartDay, Message, Model, Msg(..), RawSearchForm, RawSearchFormMsg(..), SearchForm, SearchFormMsg(..), SearchResults, formCheckBox, formField, formInput, init, main, searchResultsDecoder, subscriptions, timeSeries, update, updateRawSearchForm, updateSearchForm, view, viewRawSearchForm, viewSearchForm, viewSearchForms)
+module Main exposing (ChartDay, Message, Model, Msg(..), RawSearchForm, RawSearchFormMsg(..), SearchForm, SearchFormMsg(..), SearchResults, init, main, searchResultsDecoder, subscriptions, timeSeries, update, updateRawSearchForm, updateSearchForm, view, viewRawSearchForm, viewSearchForm, viewSearchForms)
 
 import BarGraph exposing (barGraph)
 import Browser
 import Debug
-import Html exposing (Html, a, br, button, div, h1, h2, input, label, li, p, table, tbody, td, text, textarea, th, thead, tr, ul)
-import Html.Attributes exposing (checked, class, cols, href, id, name, placeholder, rows, scope, type_, value)
-import Html.Events exposing (onClick, onInput)
+import Element as E
+import Element.Background as Background
+import Element.Border as Border
+import Element.Events as Ev
+import Element.Font as Font
+import Element.Input as Input
+import Html exposing (Html)
+import Html.Attributes as Attributes
 import Http
 import Iso8601
 import Json.Decode as Decode exposing (Decoder, field, int, list, string)
-import Json.Decode.Pipeline exposing (required)
+import Json.Decode.Pipeline exposing (hardcoded, required)
 import Time
 import Url.Builder
 
@@ -54,7 +59,8 @@ type alias Model =
     { gmailUrl : String
     , searchForm : SearchForm
     , rawSearchForm : RawSearchForm
-    , searchResults : Result Http.Error SearchResults
+    , searchResults : SearchResults
+    , searchStatus : SearchStatus
     }
 
 
@@ -70,6 +76,7 @@ type alias Message =
     , subject : String
     , snippet : String
     , body : String
+    , expanded : Bool
     }
 
 
@@ -77,6 +84,13 @@ type alias ChartDay =
     { date : String
     , messages : Int
     }
+
+
+type SearchStatus
+    = Empty
+    | Loading
+    | Success
+    | Failure String
 
 
 type alias SearchResults =
@@ -108,12 +122,13 @@ init _ =
 }"""
 
         emptySearchResults =
-            Ok (SearchResults "" [] [])
+            SearchResults "" [] []
     in
     ( { gmailUrl = "https://mail.google.com/mail/"
       , searchForm = defaultSearchForm
       , rawSearchForm = defaultRawSearchForm
       , searchResults = emptySearchResults
+      , searchStatus = Empty
       }
     , Cmd.none
     )
@@ -147,6 +162,7 @@ type Msg
     | DoSearch
     | DoRawSearch
     | GotSearch (Result Http.Error SearchResults)
+    | Toggle String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -169,11 +185,32 @@ update msg model =
             , Cmd.none
             )
 
+        Toggle id ->
+            let
+                toggle message =
+                    if message.id == id then
+                        { message | expanded = not message.expanded }
+
+                    else
+                        message
+
+                messages =
+                    List.map toggle model.searchResults.messages
+
+                searchResults =
+                    let
+                        oldSearchResults =
+                            model.searchResults
+                    in
+                    { oldSearchResults | messages = messages }
+            in
+            ( { model | searchResults = searchResults }, Cmd.none )
+
         DoSearch ->
-            ( model, doSearch model.searchForm )
+            ( { model | searchStatus = Loading }, doSearch model.searchForm )
 
         DoRawSearch ->
-            ( model, doRawSearch model.rawSearchForm )
+            ( { model | searchStatus = Loading }, doRawSearch model.rawSearchForm )
 
         GotSearch results ->
             case results of
@@ -186,14 +223,15 @@ update msg model =
                             { rawSearchForm | query = searchResults.query }
                     in
                     ( { model
-                        | searchResults = results
+                        | searchResults = searchResults
                         , rawSearchForm = updatedRawSearchForm
+                        , searchStatus = Success
                       }
                     , Cmd.none
                     )
 
                 Err e ->
-                    ( { model | searchResults = results }, Cmd.none )
+                    ( { model | searchStatus = Failure (Debug.toString e) }, Cmd.none )
 
 
 updateRawSearchForm : RawSearchFormMsg -> RawSearchForm -> RawSearchForm
@@ -257,171 +295,177 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    div []
-        [ div [] [ viewSearchForms model ]
-        , div [] [ viewSearchResults model.searchResults model.gmailUrl ]
-        ]
+    E.layout [ Font.size 12 ] <|
+        E.column [] [ viewSearchForms model, viewSearchResults model.searchStatus model.searchResults model.gmailUrl ]
 
 
-viewSearchForms : Model -> Html Msg
+spacing =
+    20
+
+
+viewSearchForms : Model -> E.Element Msg
 viewSearchForms model =
-    div [ class "search-form" ]
-        [ formInput "gmailurl" "gmailurl" model.gmailUrl UpdateGmailUrl
+    E.column [ E.spacing spacing ]
+        [ E.el [] <|
+            Input.text []
+                { onChange = \str -> UpdateGmailUrl str
+                , text = model.gmailUrl
+                , placeholder = Nothing
+                , label = Input.labelAbove [] (E.text "Gmail url:")
+                }
         , viewSearchForm model.searchForm
-        , div [] [ p [] [ text "OR" ] ]
+        , E.el [] <| E.paragraph [] [ E.text "OR" ]
         , viewRawSearchForm model.rawSearchForm
         ]
 
 
-viewSearchForm : SearchForm -> Html Msg
+onOffSwitch checked =
+    let
+        backgroundColor =
+            if checked then
+                E.rgb255 0 0 0
+
+            else
+                E.rgb255 255 255 255
+    in
+    E.el [ Border.solid, Border.color (E.rgb255 200 200 200), Border.width 1, Font.color backgroundColor, E.width (E.px 10), Background.color backgroundColor ] (E.text " ")
+
+
+viewSearchForm : SearchForm -> E.Element Msg
 viewSearchForm model =
     let
-        searchFormMessage : (a -> SearchFormMsg) -> (a -> Msg)
-        searchFormMessage fn =
-            \a -> UpdateSearch (fn a)
+        searchField : (String -> SearchFormMsg) -> String -> String -> E.Element Msg
+        searchField msg val label =
+            Input.text []
+                { onChange = \str -> UpdateSearch (msg str)
+                , text = val
+                , placeholder = Nothing
+                , label = Input.labelAbove [] (E.text label)
+                }
     in
-    div []
-        [ formInput "participants" "Participants (applies to From:, To:, and CC:):" model.participants (searchFormMessage Participants)
-        , formInput "bodyOrSubject" "Body or subject:" model.bodyOrSubject (searchFormMessage BodyOrSubject)
-        , formInput "startDate" "Start date (\"YYYY-MM-DD\"):" model.startDate (searchFormMessage StartDate)
-        , formInput "endDate" "End date (\"YYYY-MM-DD\"):" model.endDate (searchFormMessage EndDate)
-        , formInput "timezone" "Time zone (e.g. -0800 for PST):" model.timeZone (searchFormMessage TimeZone)
-        , formInput "label" "Label:" model.label (searchFormMessage Label)
-        , formCheckBox "starred" "Starred only:" model.starredOnly (UpdateSearch StarredOnly)
-        , formInput "sort" "Sort field:" model.sortField (searchFormMessage SortField)
-        , formCheckBox "ascending" "Ascending:" model.ascending (UpdateSearch Ascending)
-        , formInput "size" "Size:" (String.fromInt model.size) (searchFormMessage Size)
-        , btn "query" DoSearch
+    E.column [ E.spacing spacing ]
+        [ searchField Participants model.participants "Participants (applies to From, To, and CC)"
+        , searchField BodyOrSubject model.bodyOrSubject "Body or subject"
+        , searchField StartDate model.startDate "Start date (\"YYYY-MM-DD\")"
+        , searchField EndDate model.endDate "End date (\"YYYY-MM-DD\")"
+        , searchField TimeZone model.timeZone "Time zone (e.g. -0800 for PST)"
+        , searchField Label model.label "Label"
+        , Input.checkbox []
+            { onChange = \b -> UpdateSearch StarredOnly
+            , icon = onOffSwitch
+            , checked = model.starredOnly
+            , label = Input.labelLeft [] (E.text "Starred only")
+            }
+        , searchField SortField model.sortField "Sort field"
+        , Input.checkbox []
+            { onChange = \b -> UpdateSearch Ascending
+            , icon = onOffSwitch
+            , checked = model.ascending
+            , label = Input.labelLeft [] (E.text "Ascending")
+            }
+        , searchField Size (String.fromInt model.size) "Size"
+        , Input.button
+            [ Border.width 1
+            , Border.color <| E.rgb255 220 220 220
+            , Border.rounded 5
+            , Font.size 12
+            , E.padding 3
+            ]
+            { onPress = Just DoSearch
+            , label = E.text "Query"
+            }
         ]
 
 
-viewRawSearchForm : RawSearchForm -> Html Msg
+viewRawSearchForm : RawSearchForm -> E.Element Msg
 viewRawSearchForm model =
-    let
-        rawSearchFormMessage : (String -> RawSearchFormMsg) -> (String -> Msg)
-        rawSearchFormMessage fn =
-            \str -> UpdateRawSearch (fn str)
-
-        queryField =
-            textarea [ rows 12, cols 120, name "query", value model.query, onInput (rawSearchFormMessage Query) ] []
-    in
-    div []
-        [ formField "Query:" queryField
-        , btn "raw query" DoRawSearch
+    E.column
+        []
+        [ Input.multiline
+            [ E.height E.shrink ]
+            { onChange = \str -> UpdateRawSearch (Query str)
+            , text = model.query
+            , placeholder = Nothing
+            , label = Input.labelAbove [] (E.text "Query")
+            , spellcheck = False
+            }
+        , Input.button
+            [ Border.width 1
+            , Border.color <| E.rgb255 220 220 220
+            , Border.rounded 5
+            , Font.size 12
+            , E.padding 3
+            ]
+            { onPress = Just DoRawSearch
+            , label = E.text "Raw query"
+            }
         ]
 
 
-formInput : String -> String -> String -> (String -> msg) -> Html msg
-formInput fieldName labelText val msgFn =
-    let
-        f =
-            input [ name fieldName, placeholder fieldName, value val, onInput msgFn ] []
-    in
-    formField labelText f
-
-
-formCheckBox : String -> String -> Bool -> msg -> Html msg
-formCheckBox fieldName labelText val msg =
-    let
-        f =
-            input [ type_ "checkbox", name fieldName, checked val, onClick msg ] []
-    in
-    formField labelText f
-
-
-formField : String -> Html msg -> Html msg
-formField labelText f =
-    div [] [ label [] [ text labelText, br [] [], f ] ]
-
-
-btn : String -> Msg -> Html Msg
-btn label msg =
-    button [ onClick msg ] [ text label ]
-
-
-viewSearchResults : Result Http.Error SearchResults -> String -> Html Msg
-viewSearchResults results inboxUrl =
+viewSearchResults : SearchStatus -> SearchResults -> String -> E.Element Msg
+viewSearchResults status searchResults inboxUrl =
     let
         threadUrl =
             \id ->
                 inboxUrl ++ "#inbox/" ++ id
 
-        summaryRow =
-            \message ->
-                tr []
-                    [ td [] [ text message.date ]
-                    , td [] [ text message.from ]
-                    , td [] [ a [ href (threadUrl message.threadId) ] [ text "Gmail" ] ]
-                    , td [] [ a [ href ("#" ++ message.id) ] [ text "Jump" ] ]
-                    , td [] [ text message.subject ]
-                    ]
+        messageSummaries : List Message -> E.Element Msg
+        messageSummaries messages =
+            let
+                messageRows : List (E.Element Msg)
+                messageRows =
+                    let
+                        row : Message -> E.Element Msg
+                        row message =
+                            let
+                                summary =
+                                    E.row [ E.spacingXY 20 5, Ev.onClick (Toggle message.id) ]
+                                        [ E.el [ E.width (E.px 280) ] (E.text message.date)
+                                        , E.el [ E.width (E.px 300), E.clip ] (E.text message.from)
+                                        , E.row []
+                                            [ E.el [] <| E.text message.subject
+                                            , E.el [ Font.color <| E.rgba255 120 120 120 50 ] <| E.text <| " – " ++ message.snippet
+                                            ]
+                                        ]
 
-        toc =
-            \messages ->
-                div []
-                    [ table []
-                        [ thead []
-                            [ tr []
-                                [ th [] [ text "Date" ]
-                                , th [] [ text "From" ]
-                                , th [] [ text "Gmail" ]
-                                , th [] [ text "Jump" ]
-                                , th [] [ text "Subject" ]
-                                ]
-                            ]
-                        , tbody []
-                            (List.map summaryRow messages)
-                        ]
-                    ]
+                                expanded =
+                                    if message.expanded then
+                                        E.column []
+                                            [ E.link [ Font.color (E.rgb255 30 30 200) ]
+                                                { url = threadUrl message.threadId
+                                                , label = E.text "Open in Gmail"
+                                                }
+                                            , E.el [] (E.text message.body)
+                                            ]
 
-        messagesView =
-            \messages ->
-                div [] (List.map messageView messages)
-
-        messageView =
-            \message ->
-                let
-                    row =
-                        \label value ->
-                            tr []
-                                [ th [ scope "row" ] [ text label ]
-                                , td [] [ text value ]
-                                ]
-                in
-                li []
-                    [ table [ id message.id ]
-                        [ row "Date" message.date
-                        , row "From" message.from
-                        , row "To" message.to
-                        , row "Cc" message.cc
-                        , row "Subject" message.subject
-                        ]
-                    , div [] [ text message.body ]
-                    , ul []
-                        [ li []
-                            [ a [ href "#ToC" ] [ text "ToC" ]
-                            ]
-                        , li []
-                            [ a [ href (threadUrl message.threadId) ] [ text "Gmail" ] ]
-                        ]
-                    ]
+                                    else
+                                        E.none
+                            in
+                            E.column [] [ summary, expanded ]
+                    in
+                    List.map row messages
+            in
+            E.column [] messageRows
     in
-    case results of
-        Ok searchResults ->
+    case status of
+        Loading ->
+            E.el [] (E.text "Loading …")
+
+        Success ->
             if List.length searchResults.messages > 0 then
-                div []
-                    [ div [] [ barGraph (timeSeries searchResults.chartData) ]
-                    , h1 [ id "ToC" ] [ text "Table of Contents" ]
-                    , toc searchResults.messages
-                    , h2 [] [ text "Email messages" ]
-                    , messagesView searchResults.messages
+                E.column []
+                    [ E.el [ E.width (E.px 800), E.height E.fill ] (E.html <| Html.div [ Attributes.id "graph" ] [ barGraph (timeSeries searchResults.chartData) ])
+                    , messageSummaries searchResults.messages
                     ]
 
             else
-                div [] []
+                E.el [] (E.text "No messages found")
 
-        Err e ->
-            div [] [ text (Debug.toString e) ]
+        Failure e ->
+            E.el [] <| E.text ("Search error:" ++ e)
+
+        Empty ->
+            E.none
 
 
 timeSeries : List ChartDay -> List ( Time.Posix, Float )
@@ -520,6 +564,7 @@ messageDecoder =
         |> required "Subject" string
         |> required "Snippet" string
         |> required "Body" string
+        |> hardcoded False
 
 
 chartDayDecoder : Decoder ChartDay
