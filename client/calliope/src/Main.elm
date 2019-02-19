@@ -424,12 +424,12 @@ viewSearchForms model =
         [ E.spacing spacing
         , padding 20
         ]
-        [ E.el [] <|
+        [ E.el [ E.width E.fill ] <|
             Input.text inputTextStyle
                 { onChange = \str -> UpdateGmailUrl str
                 , text = model.gmailUrl
                 , placeholder = Nothing
-                , label = Input.labelAbove [] (E.text "Gmail url")
+                , label = Input.labelAbove [] (E.text "Gmail url (useful if you are signed in to multiple Gmail accounts simultaneously)")
                 }
         , searchForm
         ]
