@@ -38,18 +38,6 @@ func startServer() {
     web.ShowStats(r, w)
   })
 
-  fs := http.FileServer(http.Dir("public/assets"))
-  http.Handle("/assets/", http.StripPrefix("/assets/", fs))
-
-  http.HandleFunc("/old", func(w http.ResponseWriter, r *http.Request) {
-    if r.URL.Path == "/old" {
-      options:= getOptionsFromRequest(r)
-      web.ShowOldHomePage(r, w, options)
-    } else {
-      fmt.Fprint(w, "Nothing to see here.")
-    }
-  })
-
   http.HandleFunc("/api/search", func(w http.ResponseWriter, r *http.Request) {
     svc := misc.GetStoreClient()
     options:= getOptionsFromRequest(r)
@@ -68,9 +56,9 @@ func startServer() {
       id:= matches[1]
       web.ShowMessage(id, w, r)
     } else if r.URL.Path == "/" {
-      web.ShowHomePage(r, w)
-    } else {
       fmt.Fprint(w, "API server started. Ready to accept connections.")
+    } else {
+      w.WriteHeader(http.StatusNotFound)
     }
   })
 
