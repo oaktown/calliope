@@ -27,7 +27,7 @@ type Message struct {
   Date                time.Time
   DownloadedStartedAt time.Time
   To                  string
-  Cc                   string
+  Cc                  string
   From                string
   Subject             string
   Snippet             string
@@ -131,6 +131,21 @@ func (s *Service) FindLabelId(labelName string) (string, error) {
     return "", errors.New(err)
   }
   return labelId, nil
+}
+
+func (s *Service) GetMessage(id string) (Message, error) {
+  doc, err := s.Client.Get().Index(MailIndex).Type("document").Id(id).Do(s.Ctx)
+  if err != nil {
+    return Message{}, err
+  }
+
+  var message Message
+
+  if err := json.Unmarshal(*doc.Source, &message); err != nil {
+    return Message{}, err
+  } else {
+    return message, nil
+  }
 }
 
 func (s *Service) GetMessages(req *elastic.SearchService) ([]*Message, error) {

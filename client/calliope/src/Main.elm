@@ -20,7 +20,7 @@ import Element.Border as Border
 import Element.Events as Ev
 import Element.Font as Font
 import Element.Input as Input
-import Html exposing (Html)
+import Html exposing (Html, iframe)
 import Html.Attributes as Attributes
 import Http
 import Iso8601
@@ -467,13 +467,17 @@ viewSearchResults status searchResults inboxUrl =
                                         ]
 
                                 expanded =
+                                    let
+                                        iframe =
+                                            Html.iframe [ Attributes.width 1280, Attributes.height 1000, Attributes.src ("/message/" ++ message.id) ] []
+                                    in
                                     if message.expanded then
                                         E.column []
                                             [ E.link [ Font.color (E.rgb255 30 30 200) ]
                                                 { url = threadUrl message.threadId
                                                 , label = E.text "Open in Gmail"
                                                 }
-                                            , E.el [] (E.text message.body)
+                                            , E.el [ E.width E.fill ] (E.html iframe)
                                             ]
 
                                     else

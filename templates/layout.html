@@ -4,8 +4,7 @@
     <head>
         <meta charset="UTF-8">
         <title>{{.Title}}</title>
-        <link href="/assets/c3.min.css" rel="stylesheet">
-        {{template "scripts" .}}
+        {{template "style" .}}
     </head>
     <body>
     {{template "content" .}}
@@ -13,8 +12,7 @@
     </html>
 {{end}}
 
-
-{{define "scripts"}}
+{{define "style"}}
 {{end}}
 
 {{define "content"}}

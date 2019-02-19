@@ -68,7 +68,7 @@ var googleLabel = map[string]bool{
 }
 
 func (s *Service) GetLabels(userOnly bool) ([]*Label, error) {
-	labels, err := s.getLabelsFromStore();
+	labels, err := s.getLabelsFromStore()
 	if err != nil {
 		// TODO: handle error
 	}
@@ -79,7 +79,7 @@ func (s *Service) GetLabels(userOnly bool) ([]*Label, error) {
 				userLabels = append(userLabels, label)
 			}
 		}
-		return userLabels, nil;
+		return userLabels, nil
 	}
-	return labels, nil;
+	return labels, nil
 }
