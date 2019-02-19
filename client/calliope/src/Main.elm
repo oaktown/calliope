@@ -2,6 +2,7 @@ module Main exposing (ChartDay, Message, Model, Msg(..), RawSearchForm, RawSearc
 
 import BarGraph exposing (barGraph)
 import Browser
+import Browser.Events as BE
 import Debug
 import Element as E
     exposing
@@ -73,6 +74,7 @@ type alias Model =
     , searchResults : SearchResults
     , searchStatus : SearchStatus
     , showAdvancedSearch : Bool
+    , windowWidth : Int
     }
 
 
@@ -112,8 +114,8 @@ type alias SearchResults =
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
+init : Int -> ( Model, Cmd Msg )
+init flags =
     let
         defaultSearchForm =
             SearchForm "" "" "" "" "" "" False "Date" False 100
@@ -142,6 +144,7 @@ init _ =
       , searchResults = emptySearchResults
       , searchStatus = Empty
       , showAdvancedSearch = False
+      , windowWidth = flags
       }
     , Cmd.none
     )
@@ -176,6 +179,7 @@ type Msg
     | DoRawSearch
     | CollapseAll
     | ToggleAdvancedSearch
+    | Resize Int Int
     | GotSearch (Result Http.Error SearchResults)
     | Toggle String
 
@@ -232,6 +236,9 @@ update msg model =
                     { message | expanded = False }
             in
             ( { model | searchResults = updateMessagesInSearchResults setCollapse }, Cmd.none )
+
+        Resize x _ ->
+            ( { model | windowWidth = x }, Cmd.none )
 
         DoSearch ->
             ( { model | searchStatus = Loading }, doSearch model.searchForm )
@@ -313,10 +320,11 @@ updateSearchForm msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    BE.onResize (\x y -> Resize x y)
 
 
 
+--    Sub.none
 -- VIEW
 
 
@@ -326,7 +334,7 @@ view model =
         column [ width fill ]
             [ viewTopbar
             , viewSearchForms model
-            , viewSearchResults model.searchStatus model.searchResults model.gmailUrl
+            , viewSearchResults model.windowWidth model.searchStatus model.searchResults model.gmailUrl
             ]
 
 
@@ -357,6 +365,21 @@ defaultButtonAttrs =
     , Font.size 12
     , E.padding 3
     ]
+
+
+graphWidth =
+    800
+
+
+
+{- TODO: Currently set in barGraph not in this file. When we replace the
+   placeholder barGraph with the new visualization we should make the dimensions
+   settable.
+-}
+
+
+graphHeight =
+    450
 
 
 gutter =
@@ -451,7 +474,7 @@ viewSearchForm model =
             E.column (gutter :: columnAttrs)
                 [ searchField BodyOrSubject model.bodyOrSubject "Body or subject"
                 , E.row [ E.width E.fill ]
-                    [ Input.text [ E.width (E.fillPortion 4) ]
+                    [ Input.text (E.width (E.fillPortion 4) :: inputTextStyle)
                         { onChange = \str -> UpdateSearch (Label str)
                         , text = model.label
                         , placeholder = Nothing
@@ -465,7 +488,7 @@ viewSearchForm model =
                         }
                     ]
                 , E.row [ E.width E.fill ]
-                    [ Input.text [ E.width (E.fillPortion 4) ]
+                    [ Input.text (E.width (E.fillPortion 4) :: inputTextStyle)
                         { onChange = \str -> UpdateSearch (SortField str)
                         , text = model.sortField
                         , placeholder = Nothing
@@ -526,8 +549,8 @@ viewRawSearchForm model =
         ]
 
 
-viewSearchResults : SearchStatus -> SearchResults -> String -> E.Element Msg
-viewSearchResults status searchResults inboxUrl =
+viewSearchResults : Int -> SearchStatus -> SearchResults -> String -> E.Element Msg
+viewSearchResults windowWidth status searchResults inboxUrl =
     let
         expandAndCollapseButtons =
             E.row []
@@ -563,7 +586,7 @@ viewSearchResults status searchResults inboxUrl =
                                 expanded =
                                     let
                                         iframe =
-                                            Html.iframe [ Attributes.width 1280, Attributes.height 1000, Attributes.src ("/message/" ++ message.id) ] []
+                                            Html.iframe [ Attributes.width windowWidth, Attributes.height graphHeight, Attributes.src ("/message/" ++ message.id) ] []
                                     in
                                     if message.expanded then
                                         E.column []
@@ -590,7 +613,7 @@ viewSearchResults status searchResults inboxUrl =
         Success ->
             if List.length searchResults.messages > 0 then
                 E.column []
-                    [ E.el [ E.width (E.px 800), E.height E.fill ] (E.html <| Html.div [ Attributes.id "graph" ] [ barGraph (timeSeries searchResults.chartData) ])
+                    [ E.el [ E.width (E.px graphWidth), E.height E.fill ] (E.html <| Html.div [ Attributes.id "graph" ] [ barGraph (timeSeries searchResults.chartData) ])
                     , expandAndCollapseButtons
                     , messageSummaries searchResults.messages
                     ]
