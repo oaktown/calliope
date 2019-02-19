@@ -350,6 +350,39 @@ spacing =
     20
 
 
+defaultButtonAttrs =
+    [ Border.width 1
+    , Border.color gray
+    , Border.rounded 5
+    , Font.size 12
+    , E.padding 3
+    ]
+
+
+gutter =
+    E.paddingXY 20 0
+
+
+black =
+    E.rgb255 0 0 0
+
+
+white =
+    E.rgb255 255 255 255
+
+
+gray =
+    E.rgb255 220 220 220
+
+
+dimmedGray =
+    E.rgba255 120 120 120 50
+
+
+linkColor =
+    E.rgb255 30 30 200
+
+
 inputTextStyle =
     [ padding 6 ]
 
@@ -383,12 +416,12 @@ onOffSwitch checked =
     let
         backgroundColor =
             if checked then
-                E.rgb255 0 0 0
+                black
 
             else
-                E.rgb255 255 255 255
+                white
     in
-    E.el [ Border.solid, Border.color (E.rgb255 200 200 200), Border.width 1, Font.color backgroundColor, E.width (E.px 10), Background.color backgroundColor ] (E.text " ")
+    E.el [ Border.solid, Border.color gray, Border.width 1, Font.color backgroundColor, E.width (E.px 10), Background.color backgroundColor ] (E.text " ")
 
 
 viewSearchForm : SearchForm -> E.Element Msg
@@ -415,7 +448,7 @@ viewSearchForm model =
                 ]
 
         rightSide =
-            E.column (E.paddingXY 20 0 :: columnAttrs)
+            E.column (gutter :: columnAttrs)
                 [ searchField BodyOrSubject model.bodyOrSubject "Body or subject"
                 , E.row [ E.width E.fill ]
                     [ Input.text [ E.width (E.fillPortion 4) ]
@@ -424,7 +457,7 @@ viewSearchForm model =
                         , placeholder = Nothing
                         , label = Input.labelAbove [] (E.text "Label")
                         }
-                    , Input.checkbox [ E.width (E.fillPortion 1), E.paddingXY 20 0 ]
+                    , Input.checkbox [ E.width (E.fillPortion 1), gutter ]
                         { onChange = \b -> UpdateSearch StarredOnly
                         , icon = onOffSwitch
                         , checked = model.starredOnly
@@ -438,7 +471,7 @@ viewSearchForm model =
                         , placeholder = Nothing
                         , label = Input.labelAbove [] (E.text "Sort field")
                         }
-                    , Input.checkbox [ E.width (E.fillPortion 1), E.paddingXY 20 0 ]
+                    , Input.checkbox [ E.width (E.fillPortion 1), gutter ]
                         { onChange = \b -> UpdateSearch Ascending
                         , icon = onOffSwitch
                         , checked = model.ascending
@@ -449,27 +482,15 @@ viewSearchForm model =
                 ]
 
         formFields =
-            E.row [ E.width <| E.px 1200 ] [ leftSide, rightSide ]
+            E.row [] [ leftSide, rightSide ]
 
         buttons =
             E.row []
-                [ Input.button
-                    [ Border.width 1
-                    , Border.color <| E.rgb255 220 220 220
-                    , Border.rounded 5
-                    , Font.size 12
-                    , E.padding 3
-                    ]
+                [ Input.button defaultButtonAttrs
                     { onPress = Just DoSearch
                     , label = E.text "Query"
                     }
-                , Input.button
-                    [ Border.width 1
-                    , Border.color <| E.rgb255 220 220 220
-                    , Border.rounded 5
-                    , Font.size 12
-                    , E.padding 3
-                    ]
+                , Input.button defaultButtonAttrs
                     { onPress = Just ToggleAdvancedSearch
                     , label = E.text "AdvancedSearch"
                     }
@@ -493,23 +514,11 @@ viewRawSearchForm model =
             , spellcheck = False
             }
         , E.row []
-            [ Input.button
-                [ Border.width 1
-                , Border.color <| E.rgb255 220 220 220
-                , Border.rounded 5
-                , Font.size 12
-                , E.padding 3
-                ]
+            [ Input.button defaultButtonAttrs
                 { onPress = Just DoRawSearch
                 , label = E.text "Raw query"
                 }
-            , Input.button
-                [ Border.width 1
-                , Border.color <| E.rgb255 220 220 220
-                , Border.rounded 5
-                , Font.size 12
-                , E.padding 3
-                ]
+            , Input.button defaultButtonAttrs
                 { onPress = Just ToggleAdvancedSearch
                 , label = E.text "Regular search"
                 }
@@ -522,13 +531,7 @@ viewSearchResults status searchResults inboxUrl =
     let
         expandAndCollapseButtons =
             E.row []
-                [ Input.button
-                    [ Border.width 1
-                    , Border.color <| E.rgb255 220 220 220
-                    , Border.rounded 5
-                    , Font.size 12
-                    , E.padding 3
-                    ]
+                [ Input.button defaultButtonAttrs
                     { onPress = Just CollapseAll
                     , label = E.text "Collapse all"
                     }
@@ -553,7 +556,7 @@ viewSearchResults status searchResults inboxUrl =
                                         , E.el [ E.width (E.px 300), E.clip ] (E.text message.from)
                                         , E.row []
                                             [ E.el [] <| E.text message.subject
-                                            , E.el [ Font.color <| E.rgba255 120 120 120 50 ] <| E.text <| " – " ++ message.snippet
+                                            , E.el [ Font.color dimmedGray ] <| E.text (" – " ++ message.snippet)
                                             ]
                                         ]
 
@@ -564,7 +567,7 @@ viewSearchResults status searchResults inboxUrl =
                                     in
                                     if message.expanded then
                                         E.column []
-                                            [ E.link [ Font.color (E.rgb255 30 30 200) ]
+                                            [ E.link [ Font.color linkColor ]
                                                 { url = threadUrl message.threadId
                                                 , label = E.text "Open in Gmail"
                                                 }
