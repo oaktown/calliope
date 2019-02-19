@@ -297,7 +297,7 @@ subscriptions model =
 view : Model -> Html Msg
 view model =
     E.layout [] <|
-        column []
+        column [width fill]
             [ viewTopbar
             , E.html <| viewSearchForms model
             , viewSearchResults model.searchStatus model.searchResults model.gmailUrl
