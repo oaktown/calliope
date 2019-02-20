@@ -177,7 +177,6 @@ type Msg
     | UpdateSearch SearchFormMsg
     | DoSearch
     | DoRawSearch
-    | CollapseAll
     | ToggleAdvancedSearch
     | Resize Int Int
     | GotSearch (Result Http.Error SearchResults)
@@ -229,13 +228,6 @@ update msg model =
                         { message | expanded = False }
             in
             ( { model | searchResults = updateMessagesInSearchResults toggle }, Cmd.none )
-
-        CollapseAll ->
-            let
-                setCollapse message =
-                    { message | expanded = False }
-            in
-            ( { model | searchResults = updateMessagesInSearchResults setCollapse }, Cmd.none )
 
         Resize x _ ->
             ( { model | windowWidth = x }, Cmd.none )
@@ -552,14 +544,6 @@ viewRawSearchForm model =
 viewSearchResults : Int -> SearchStatus -> SearchResults -> String -> E.Element Msg
 viewSearchResults windowWidth status searchResults inboxUrl =
     let
-        expandAndCollapseButtons =
-            E.row []
-                [ Input.button defaultButtonAttrs
-                    { onPress = Just CollapseAll
-                    , label = E.text "Collapse all"
-                    }
-                ]
-
         threadUrl =
             \id ->
                 inboxUrl ++ "#inbox/" ++ id
@@ -614,7 +598,6 @@ viewSearchResults windowWidth status searchResults inboxUrl =
             if List.length searchResults.messages > 0 then
                 E.column []
                     [ E.el [ E.width (E.px graphWidth), E.height E.fill ] (E.html <| Html.div [ Attributes.id "graph" ] [ barGraph (timeSeries searchResults.chartData) ])
-                    , expandAndCollapseButtons
                     , messageSummaries searchResults.messages
                     ]
 
