@@ -226,7 +226,7 @@ update msg model =
                         { message | expanded = not message.expanded }
 
                     else
-                        message
+                        { message | expanded = False }
             in
             ( { model | searchResults = updateMessagesInSearchResults toggle }, Cmd.none )
 
