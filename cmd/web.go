@@ -3,13 +3,15 @@ package cmd
 import (
   "encoding/json"
   "fmt"
+  "github.com/gorilla/mux"
+  "time"
+
   "github.com/oaktown/calliope/misc"
   "github.com/oaktown/calliope/report"
   "github.com/oaktown/calliope/web"
   "github.com/spf13/cobra"
   "log"
   "net/http"
-  "regexp"
   "strconv"
 )
 
@@ -30,18 +32,19 @@ var webCmd = &cobra.Command{
 }
 
 func startServer() {
-  http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-    http.ServeFile(w, r, "images/email_monster_Uxt_icon.ico")
-  })
 
-  http.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
+  r := mux.NewRouter()
+
+  r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("public"))))
+
+  r.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
     web.ShowStats(r, w)
   })
 
-  http.HandleFunc("/api/search", func(w http.ResponseWriter, r *http.Request) {
+  r.HandleFunc("/api/search", func(w http.ResponseWriter, r *http.Request) {
     svc := misc.GetStoreClient()
-    options:= getOptionsFromRequest(r)
-    reportData:= report.GetJsonReport(options, svc)
+    options := getOptionsFromRequest(r)
+    reportData := report.GetJsonReport(options, svc)
     // TODO: handle error
     reportJson, _ := json.MarshalIndent(reportData, "", "  ")
     w.Header().Set("Content-Type", "application/json")
@@ -49,21 +52,28 @@ func startServer() {
     fmt.Fprint(w, string(reportJson))
   })
 
-  http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-    pat := regexp.MustCompile("/message/([^/]+)")
-    matches := pat.FindStringSubmatch(r.URL.Path)
-    if len(matches) == 2 {
-      id:= matches[1]
-      web.ShowMessage(id, w, r)
-    } else if r.URL.Path == "/" {
+  r.HandleFunc("/message/{id:[^/]+}", func(w http.ResponseWriter, r *http.Request) {
+    id := mux.Vars(r)["id"]
+    web.ShowMessage(id, w, r)
+  })
+
+  r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+    if r.URL.Path == "/" {
       fmt.Fprint(w, "API server started. Ready to accept connections.")
     } else {
       w.WriteHeader(http.StatusNotFound)
     }
   })
 
+  srv := &http.Server{
+    Handler:      r,
+    Addr:         "127.0.0.1:8080",
+    WriteTimeout: 15 * time.Second,
+    ReadTimeout:  15 * time.Second,
+  }
+
   fmt.Printf("Starting web server: http://localhost:%s/\n\n", port)
-  log.Fatal(http.ListenAndServe(":"+port, nil))
+  log.Fatal(srv.ListenAndServe())
 }
 
 func getOptionsFromRequest(r *http.Request) report.QueryOptions {
