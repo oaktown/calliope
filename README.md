@@ -276,11 +276,15 @@ When you run the app using `elm-app start`, you can access the debugger through 
 
 ## Contributing
 
-All changes via Pull Request, someone who is not the author should provide
-feedback and approve changes.
+All changes via Pull Request, someone who is not the author should provide feedback and approve changes.
 
-If the author is a committer, then leave the PR merge to them.  Committers
-should rebase and squash before merging to master.
+If the author is a committer, then leave the PR merge to them.  Committers should rebase and squash before merging to
+master. Please do so using GitHub interface (or close PR if you do this manually).
+
+Status of PRs are tracked in the [Calliope project board](https://github.com/oaktown/calliope/projects/1). PRs that are
+still in progress (e.g. pre-review) should be in the "In progress" column. When they are ready for review, move to
+"Needs review" and assign a reviewer (if you didn't already have one for work in progress). After reviewer has approved,
+merge as per above.
 
 
 
