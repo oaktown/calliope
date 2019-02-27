@@ -2,6 +2,7 @@ package web
 
 import (
   "encoding/base64"
+  "github.com/gorilla/mux"
   "github.com/microcosm-cc/bluemonday"
   "github.com/oaktown/calliope/gmailservice"
   "github.com/oaktown/calliope/misc"
@@ -11,12 +12,17 @@ import (
   "net/http"
 )
 
-type Data struct{
+type MessageHtml struct{
   Title string
   Body template.HTML
 }
 
-func ShowMessage(id string, w http.ResponseWriter, r *http.Request) {
+func MessageHandler(w http.ResponseWriter, r *http.Request) {
+  id := mux.Vars(r)["id"]
+  showMessage(id, w, r)
+}
+
+func showMessage(id string, w http.ResponseWriter, r *http.Request) {
   store := misc.GetStoreClient()
   message, err := store.GetMessage(id)
   if err != nil {
@@ -24,7 +30,7 @@ func ShowMessage(id string, w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  data := Data{"Message id:" + id, getBody(message)}
+  data := MessageHtml{"Message id:" + id, getMessageBody(message)}
 
   t := template.Must(template.ParseFiles("templates/layout.html", "templates/message.html"))
   if err := t.ExecuteTemplate(w, "layout", data); err != nil {
@@ -32,7 +38,7 @@ func ShowMessage(id string, w http.ResponseWriter, r *http.Request) {
   }
 }
 
-func getBody(message store.Message) template.HTML {
+func getMessageBody(message store.Message) template.HTML {
   htmlBodyEncoded := gmailservice.GetBodyPartByMimeType(message.Source, "text/html")
   htmlBody, _ := base64.URLEncoding.DecodeString(htmlBodyEncoded)
   var unsafeHtml string

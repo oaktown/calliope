@@ -15,11 +15,11 @@ type Stats struct {
   TotalEmails int64
 }
 
-func ShowStats(r *http.Request, w http.ResponseWriter) {
+func StatsHandler(w http.ResponseWriter, r *http.Request) {
   stats, _ := misc.GetStoreClient().GetStats()
   data := Stats{
-    Title: "server stats",
-    Earliest: stats.Earliest,
+    Title:       "server stats",
+    Earliest:    stats.Earliest,
     Latest:      stats.Latest,
     TotalEmails: stats.Total,
   }
