@@ -1,18 +1,16 @@
 package report
 
 import (
-  "bytes"
-  "encoding/json"
-  "fmt"
+  "encoding/base64"
+  "github.com/microcosm-cc/bluemonday"
+  "github.com/oaktown/calliope/gmailservice"
   "github.com/oaktown/calliope/store"
   "html/template"
-  "io"
-  "log"
 )
 
-type HtmlReport struct {
-  Html  template.HTML
-  Query string
+type MessageWithHtml struct {
+  store.Message
+  BodyHtml template.HTML
 }
 
 type QueryOptions struct {
@@ -37,40 +35,48 @@ type BarData struct {
 
 type Chart []BarData
 
-type HtmlData struct {
-  ChartJson template.HTML
-  Messages  []*store.Message
-}
-
 type JsonReport struct {
   Query     string
   ChartData Chart
-  Messages  []*store.Message
+  Messages  []*MessageWithHtml
 }
 
 func GetJsonReport(opt QueryOptions, svc *store.Service) JsonReport {
   search := setupMessageSearch(opt, svc)
   messages, _ := search.Do()
+  reportMessages := FillInHtmlBody(messages)
+
   chartData := getChartData(messages)
 
   return JsonReport{
     Query:     search.QueryString(),
     ChartData: chartData,
-    Messages:  messages,
+    Messages:  reportMessages,
   }
 }
 
-func GetHtmlReport(opt QueryOptions, svc *store.Service) HtmlReport {
-  messageSearch := setupMessageSearch(opt, svc)
-
-  var reportBuffer bytes.Buffer
-  Render(&reportBuffer, messageSearch, opt.InboxUrl)
-  reportHtml := template.HTML(reportBuffer.String())
-
-  return HtmlReport{
-    Query: messageSearch.QueryString(),
-    Html:  reportHtml,
+func FillInHtmlBody(messages []*store.Message) []*MessageWithHtml {
+  var messagesWithHtml []*MessageWithHtml
+  for _, message := range messages {
+    m := &MessageWithHtml{Message: *message, BodyHtml : template.HTML(GetMessageHtmlBody(*message))}
+    messagesWithHtml = append(messagesWithHtml, m)
   }
+  return messagesWithHtml
+}
+
+func GetMessageHtmlBody(message store.Message) string {
+  htmlBodyEncoded := gmailservice.GetBodyPartByMimeType(message.Source, "text/html")
+  htmlBody, _ := base64.URLEncoding.DecodeString(htmlBodyEncoded)
+  var unsafeHtml string
+  if len(htmlBody) > 0 {
+    unsafeHtml = string(htmlBody)
+  } else {
+    unsafeHtml = "<pre>\n" + message.Body + "\n</pre>"
+  }
+
+  p := bluemonday.UGCPolicy()
+  html := p.Sanitize(unsafeHtml)
+  return html
 }
 
 func setupMessageSearch(opt QueryOptions, svc *store.Service) store.MessageSearch {
@@ -88,41 +94,6 @@ func setupMessageSearch(opt QueryOptions, svc *store.Service) store.MessageSearc
       Starred(opt.Starred)
   }
   return messageSearch
-}
-
-func Render(wr io.Writer, messageSearch store.MessageSearch, inboxUrl string) {
-  gmailUrl := func(threadId string) string {
-    return fmt.Sprintf("%v#inbox/%v", inboxUrl, threadId)
-  }
-
-  jump := func(id string) string {
-    return fmt.Sprint("#", id)
-  }
-
-  // TODO: Return error or HTML that indicates a problem
-  messages, err := messageSearch.Do()
-  if err != nil {
-    log.Println("Exiting due to error")
-    return
-  }
-
-  chartData := getChartData(messages)
-  chartJson, _ := json.MarshalIndent(chartData, "", "  ")
-
-  report := template.Must(
-    template.New("report.html").
-      Funcs(template.FuncMap{
-        "gmailUrl": gmailUrl,
-        "jump":     jump,
-      }).
-      ParseFiles("templates/report.html"))
-  data := HtmlData{
-    ChartJson: template.HTML(chartJson),
-    Messages:  messages,
-  }
-  if err := report.Execute(wr, data); err != nil {
-    log.Println("Error rendering template: ", err)
-  }
 }
 
 func getChartData(messages []*store.Message) Chart {

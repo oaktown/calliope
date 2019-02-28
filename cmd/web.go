@@ -29,13 +29,13 @@ var webCmd = &cobra.Command{
 }
 
 func startServer() {
-
   r := mux.NewRouter()
 
   r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("public"))))
   r.HandleFunc("/stats", web.StatsHandler)
   r.HandleFunc("/api/search", api.SearchHandler)
   r.HandleFunc("/message/{id:[^/]+}", web.MessageHandler)
+  r.HandleFunc("/report", web.ReportHandler)
   r.HandleFunc("/", DefaultHandler)
 
   srv := &http.Server{
