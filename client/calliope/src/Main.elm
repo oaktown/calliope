@@ -1,4 +1,4 @@
-module Main exposing (main)
+module Main exposing (main, reactor)
 
 import BarGraph exposing (barGraph)
 import Browser
@@ -10,14 +10,14 @@ import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
 import Element.Input as Input
-import Html exposing (Html, iframe)
+import Html exposing (Html)
 import Html.Attributes as Attributes
 import Html.Parser
 import Html.Parser.Util
 import Http
 import Iso8601
 import Json.Decode as Decode exposing (Decoder, field, int, list, string)
-import Json.Decode.Pipeline exposing (hardcoded, required)
+import Json.Decode.Pipeline exposing (required)
 import Time
 import Url.Builder
 
@@ -29,6 +29,20 @@ import Url.Builder
 main =
     Browser.element
         { init = init
+        , update = update
+        , subscriptions = subscriptions
+        , view = view
+        }
+
+
+reactor =
+    let
+        reactorInit : () -> ( Model, Cmd Msg )
+        reactorInit _ =
+            init 800
+    in
+    Browser.element
+        { init = reactorInit
         , update = update
         , subscriptions = subscriptions
         , view = view
@@ -63,6 +77,7 @@ type alias Model =
     , searchForm : SearchForm
     , rawSearchForm : RawSearchForm
     , searchResults : SearchResults
+    , expandedMessageId : String
     , searchStatus : SearchStatus
     , showAdvancedSearch : Bool
     , windowWidth : Int
@@ -82,8 +97,11 @@ type alias Message =
     , snippet : String
     , body : String
     , bodyHtml : String
-    , expanded : Bool
     }
+
+
+type alias MessageWrapper =
+    ( Message, Maybe (Element Msg) )
 
 
 type alias ChartDay =
@@ -99,10 +117,17 @@ type SearchStatus
     | Failure String
 
 
-type alias SearchResults =
+type alias ApiSearchResults =
     { query : String
     , chartData : List ChartDay
     , messages : List Message
+    }
+
+
+type alias SearchResults =
+    { query : String
+    , chartData : List ChartDay
+    , messagesWithHtml : List MessageWrapper
     }
 
 
@@ -134,6 +159,7 @@ init flags =
       , searchForm = defaultSearchForm
       , rawSearchForm = defaultRawSearchForm
       , searchResults = emptySearchResults
+      , expandedMessageId = ""
       , searchStatus = Empty
       , showAdvancedSearch = False
       , windowWidth = flags
@@ -171,24 +197,12 @@ type Msg
     | DoRawSearch
     | ToggleAdvancedSearch
     | Resize Int Int
-    | GotSearch (Result Http.Error SearchResults)
+    | GotSearch (Result Http.Error ApiSearchResults)
     | Toggle String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    let
-        updateMessagesInSearchResults : (Message -> Message) -> SearchResults
-        updateMessagesInSearchResults updateMessage =
-            let
-                messages =
-                    List.map updateMessage model.searchResults.messages
-
-                searchResults =
-                    model.searchResults
-            in
-            { searchResults | messages = messages }
-    in
     case msg of
         UpdateGmailUrl gmailUrl ->
             ( { model | gmailUrl = gmailUrl }, Cmd.none )
@@ -211,15 +225,46 @@ update msg model =
             ( { model | showAdvancedSearch = not model.showAdvancedSearch }, Cmd.none )
 
         Toggle id ->
-            let
-                toggle message =
-                    if message.id == id then
-                        { message | expanded = not message.expanded }
+            if id == model.expandedMessageId then
+                ( { model | expandedMessageId = "" }, Cmd.none )
 
-                    else
-                        { message | expanded = False }
-            in
-            ( { model | searchResults = updateMessagesInSearchResults toggle }, Cmd.none )
+            else
+                let
+                    searchResults : SearchResults
+                    searchResults =
+                        let
+                            results =
+                                model.searchResults
+
+                            messagesWithHtml : List MessageWrapper
+                            messagesWithHtml =
+                                List.map populateExpandedMessageBody results.messagesWithHtml
+                        in
+                        { results | messagesWithHtml = messagesWithHtml }
+
+                    populateExpandedMessageBody : MessageWrapper -> MessageWrapper
+                    populateExpandedMessageBody ( message, body ) =
+                        if message.id /= id then
+                            ( message, body )
+
+                        else
+                            case body of
+                                Just _ ->
+                                    ( message, body )
+
+                                Nothing ->
+                                    let
+                                        maybeHtml =
+                                            Html.Parser.run message.bodyHtml
+                                    in
+                                    case maybeHtml of
+                                        Ok parsed ->
+                                            ( message, Just <| html <| Html.div [] (Html.Parser.Util.toVirtualDom parsed) )
+
+                                        Err _ ->
+                                            ( message, Just <| el [] (text "Error parsing html") )
+                in
+                ( { model | searchResults = searchResults, expandedMessageId = id }, Cmd.none )
 
         Resize x _ ->
             ( { model | windowWidth = x }, Cmd.none )
@@ -232,13 +277,29 @@ update msg model =
 
         GotSearch results ->
             case results of
-                Ok searchResults ->
+                Ok { query, chartData, messages } ->
                     let
                         rawSearchForm =
                             model.rawSearchForm
 
                         updatedRawSearchForm =
-                            { rawSearchForm | query = searchResults.query }
+                            { rawSearchForm | query = query }
+
+                        wrappedMessages : List MessageWrapper
+                        wrappedMessages =
+                            let
+                                wrapMessage : Message -> MessageWrapper
+                                wrapMessage message =
+                                    ( message, Nothing )
+                            in
+                            List.map wrapMessage messages
+
+                        searchResults : SearchResults
+                        searchResults =
+                            { query = query
+                            , chartData = chartData
+                            , messagesWithHtml = wrappedMessages
+                            }
                     in
                     ( { model
                         | searchResults = searchResults
@@ -318,7 +379,7 @@ view model =
         column [ width fill ]
             [ viewTopbar
             , viewSearchForms model
-            , viewSearchResults model.windowWidth model.searchStatus model.searchResults model.gmailUrl
+            , viewSearchResults model
             ]
 
 
@@ -533,21 +594,33 @@ viewRawSearchForm model =
         ]
 
 
-viewSearchResults : Int -> SearchStatus -> SearchResults -> String -> Element Msg
-viewSearchResults windowWidth status searchResults inboxUrl =
+viewSearchResults : Model -> Element Msg
+viewSearchResults model =
     let
+        windowWidth =
+            model.windowWidth
+
+        status =
+            model.searchStatus
+
+        searchResults =
+            model.searchResults
+
+        inboxUrl =
+            model.gmailUrl
+
         threadUrl =
             \id ->
                 inboxUrl ++ "#inbox/" ++ id
 
-        messageSummaries : List Message -> Element Msg
-        messageSummaries messages =
+        messageSummaries : List MessageWrapper -> Element Msg
+        messageSummaries messageWrappers =
             let
                 messageRows : List (Element Msg)
                 messageRows =
                     let
-                        messageRow : Message -> Element Msg
-                        messageRow message =
+                        messageRow : MessageWrapper -> Element Msg
+                        messageRow ( message, body ) =
                             let
                                 summary =
                                     row [ spacingXY 20 5, Events.onClick (Toggle message.id) ]
@@ -560,37 +633,25 @@ viewSearchResults windowWidth status searchResults inboxUrl =
                                         ]
 
                                 expanded =
-                                    let
-                                        iframe =
-                                            Html.iframe [ Attributes.width windowWidth, Attributes.height graphHeight, Attributes.src ("/message/" ++ message.id) ] []
+                                    if message.id /= model.expandedMessageId then
+                                        none
 
-                                        messageHtml =
-                                            let
-                                                body =
-                                                    Html.Parser.run message.bodyHtml
-                                            in
-                                            case body of
-                                                Ok html ->
-                                                    Html.div [] <| Html.Parser.Util.toVirtualDom html
-
-                                                _ ->
-                                                    Html.div [] []
-                                    in
-                                    if message.expanded then
+                                    else
+                                        let
+                                            messageBody =
+                                                Maybe.withDefault none body
+                                        in
                                         column []
                                             [ link [ Font.color linkColor ]
                                                 { url = threadUrl message.threadId
                                                 , label = text "Open in Gmail"
                                                 }
-                                            , el [ width fill ] (html messageHtml)
+                                            , el [ width fill ] messageBody
                                             ]
-
-                                    else
-                                        none
                             in
                             column [] [ summary, expanded ]
                     in
-                    List.map messageRow messages
+                    List.map messageRow messageWrappers
             in
             column [] messageRows
     in
@@ -599,10 +660,10 @@ viewSearchResults windowWidth status searchResults inboxUrl =
             el [] (text "Loading …")
 
         Success ->
-            if List.length searchResults.messages > 0 then
+            if List.length searchResults.messagesWithHtml > 0 then
                 column []
                     [ el [ width (px graphWidth), height fill ] (html <| Html.div [ Attributes.id "graph" ] [ barGraph (timeSeries searchResults.chartData) ])
-                    , messageSummaries searchResults.messages
+                    , messageSummaries searchResults.messagesWithHtml
                     ]
 
             else
@@ -712,7 +773,6 @@ messageDecoder =
         |> required "Snippet" string
         |> required "Body" string
         |> required "BodyHtml" string
-        |> hardcoded False
 
 
 chartDayDecoder : Decoder ChartDay
@@ -722,9 +782,9 @@ chartDayDecoder =
         |> required "Messages" int
 
 
-searchResultsDecoder : Decoder SearchResults
+searchResultsDecoder : Decoder ApiSearchResults
 searchResultsDecoder =
-    Decode.succeed SearchResults
+    Decode.succeed ApiSearchResults
         |> required "Query" string
         |> required "ChartData" (list chartDayDecoder)
         |> required "Messages" (list messageDecoder)
