@@ -1,4 +1,4 @@
-module Main exposing (ChartDay, Message, Model, Msg(..), RawSearchForm, RawSearchFormMsg(..), SearchForm, SearchFormMsg(..), SearchResults, init, main, searchResultsDecoder, subscriptions, timeSeries, update, updateRawSearchForm, updateSearchForm, view, viewRawSearchForm, viewSearchForm, viewSearchForms)
+module Main exposing (main)
 
 import BarGraph exposing (barGraph)
 import Browser
@@ -12,6 +12,8 @@ import Element.Font as Font
 import Element.Input as Input
 import Html exposing (Html, iframe)
 import Html.Attributes as Attributes
+import Html.Parser
+import Html.Parser.Util
 import Http
 import Iso8601
 import Json.Decode as Decode exposing (Decoder, field, int, list, string)
@@ -79,6 +81,7 @@ type alias Message =
     , subject : String
     , snippet : String
     , body : String
+    , bodyHtml : String
     , expanded : Bool
     }
 
@@ -560,6 +563,18 @@ viewSearchResults windowWidth status searchResults inboxUrl =
                                     let
                                         iframe =
                                             Html.iframe [ Attributes.width windowWidth, Attributes.height graphHeight, Attributes.src ("/message/" ++ message.id) ] []
+
+                                        messageHtml =
+                                            let
+                                                body =
+                                                    Html.Parser.run message.bodyHtml
+                                            in
+                                            case body of
+                                                Ok html ->
+                                                    Html.div [] <| Html.Parser.Util.toVirtualDom html
+
+                                                _ ->
+                                                    Html.div [] []
                                     in
                                     if message.expanded then
                                         column []
@@ -567,7 +582,7 @@ viewSearchResults windowWidth status searchResults inboxUrl =
                                                 { url = threadUrl message.threadId
                                                 , label = text "Open in Gmail"
                                                 }
-                                            , el [ width fill ] (html iframe)
+                                            , el [ width fill ] (html messageHtml)
                                             ]
 
                                     else
@@ -696,6 +711,7 @@ messageDecoder =
         |> required "Subject" string
         |> required "Snippet" string
         |> required "Body" string
+        |> required "BodyHtml" string
         |> hardcoded False
 
 
