@@ -58,7 +58,8 @@ func GetJsonReport(opt QueryOptions, svc *store.Service) JsonReport {
 func FillInHtmlBody(messages []*store.Message) []*MessageWithHtml {
   var messagesWithHtml []*MessageWithHtml
   for _, message := range messages {
-    m := &MessageWithHtml{Message: *message, BodyHtml : template.HTML(GetMessageHtmlBody(*message))}
+    htmlBody := GetMessageHtmlBody(*message)
+    m := &MessageWithHtml{Message: *message, BodyHtml: template.HTML(htmlBody)}
     messagesWithHtml = append(messagesWithHtml, m)
   }
   return messagesWithHtml

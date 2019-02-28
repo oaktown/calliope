@@ -27,7 +27,7 @@ type Downloader struct {
   Options        Options
   doList         func(*gmail.UsersMessagesListCall) (*gmail.ListMessagesResponse, error)
   doGet          func(*Downloader, string) (*gmail.Message, error)
-  DoListLabels   func(*gmail.UsersLabelsListCall) ()
+  DoListLabels   func(*gmail.UsersLabelsListCall)
   GmailToMessage func(gmail.Message, string, time.Time) (store.Message, error)
   StartedAt      time.Time
   clock          clockwork.Clock
@@ -76,9 +76,9 @@ func Download(d Downloader) []*store.Label {
 func DownloadLabels(d Downloader) []*store.Label {
   request := d.Svc.Users.Labels.List("me")
   response, err := request.Do()
-  if (err != nil) {
+  if err != nil {
     // TODO: need better error handling
-    log.Fatal("Error occurred downloading labels. Error: ", err);
+    log.Fatal("Error occurred downloading labels. Error: ", err)
   }
   var labels []*store.Label
   for _, l := range response.Labels {
@@ -243,9 +243,16 @@ func BodyText(msg gmail.Message, mimeType string) string {
 
 func GetBodyPartByMimeType(msg gmail.Message, mimeType string) string {
   parts := msg.Payload.Parts
+  return GetPartByMimeType(parts, mimeType)
+}
+
+func GetPartByMimeType(parts []*gmail.MessagePart, mimeType string) string {
   for _, part := range parts {
     if part.MimeType == mimeType {
       return part.Body.Data
+    }
+    if strings.Contains(part.MimeType, "multipart") {
+      return GetPartByMimeType(part.Parts, mimeType)
     }
   }
   return ""
