@@ -2,25 +2,15 @@ module Main exposing (ChartDay, Message, Model, Msg(..), RawSearchForm, RawSearc
 
 import BarGraph exposing (barGraph)
 import Browser
+import Browser.Events
 import Debug
-import Element as E
-    exposing
-        ( Element
-        , column
-        , el
-        , fill
-        , height
-        , padding
-        , rgb255
-        , row
-        , width
-        )
+import Element exposing (Element, alignTop, clip, column, el, fill, fillPortion, height, html, layout, link, none, padding, paddingXY, px, rgb255, rgba255, row, shrink, spacing, spacingXY, text, width)
 import Element.Background as Background
 import Element.Border as Border
-import Element.Events as Ev
+import Element.Events as Events
 import Element.Font as Font
 import Element.Input as Input
-import Html exposing (Html)
+import Html exposing (Html, iframe)
 import Html.Attributes as Attributes
 import Http
 import Iso8601
@@ -72,6 +62,8 @@ type alias Model =
     , rawSearchForm : RawSearchForm
     , searchResults : SearchResults
     , searchStatus : SearchStatus
+    , showAdvancedSearch : Bool
+    , windowWidth : Int
     }
 
 
@@ -111,11 +103,11 @@ type alias SearchResults =
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
+init : Int -> ( Model, Cmd Msg )
+init flags =
     let
         defaultSearchForm =
-            SearchForm "" "" "" "" "" "" False "" False 100
+            SearchForm "" "" "" "" "" "" False "Date" False 100
 
         defaultRawSearchForm =
             RawSearchForm """{
@@ -140,6 +132,8 @@ init _ =
       , rawSearchForm = defaultRawSearchForm
       , searchResults = emptySearchResults
       , searchStatus = Empty
+      , showAdvancedSearch = False
+      , windowWidth = flags
       }
     , Cmd.none
     )
@@ -172,12 +166,26 @@ type Msg
     | UpdateSearch SearchFormMsg
     | DoSearch
     | DoRawSearch
+    | ToggleAdvancedSearch
+    | Resize Int Int
     | GotSearch (Result Http.Error SearchResults)
     | Toggle String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        updateMessagesInSearchResults : (Message -> Message) -> SearchResults
+        updateMessagesInSearchResults updateMessage =
+            let
+                messages =
+                    List.map updateMessage model.searchResults.messages
+
+                searchResults =
+                    model.searchResults
+            in
+            { searchResults | messages = messages }
+    in
     case msg of
         UpdateGmailUrl gmailUrl ->
             ( { model | gmailUrl = gmailUrl }, Cmd.none )
@@ -196,6 +204,9 @@ update msg model =
             , Cmd.none
             )
 
+        ToggleAdvancedSearch ->
+            ( { model | showAdvancedSearch = not model.showAdvancedSearch }, Cmd.none )
+
         Toggle id ->
             let
                 toggle message =
@@ -203,19 +214,12 @@ update msg model =
                         { message | expanded = not message.expanded }
 
                     else
-                        message
-
-                messages =
-                    List.map toggle model.searchResults.messages
-
-                searchResults =
-                    let
-                        oldSearchResults =
-                            model.searchResults
-                    in
-                    { oldSearchResults | messages = messages }
+                        { message | expanded = False }
             in
-            ( { model | searchResults = searchResults }, Cmd.none )
+            ( { model | searchResults = updateMessagesInSearchResults toggle }, Cmd.none )
+
+        Resize x _ ->
+            ( { model | windowWidth = x }, Cmd.none )
 
         DoSearch ->
             ( { model | searchStatus = Loading }, doSearch model.searchForm )
@@ -297,20 +301,21 @@ updateSearchForm msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    Browser.Events.onResize (\x y -> Resize x y)
 
 
 
+--    Sub.none
 -- VIEW
 
 
 view : Model -> Html Msg
 view model =
-    E.layout [ Font.size 12 ] <|
+    layout [ Font.size 12 ] <|
         column [ width fill ]
             [ viewTopbar
             , viewSearchForms model
-            , viewSearchResults model.searchStatus model.searchResults model.gmailUrl
+            , viewSearchResults model.windowWidth model.searchStatus model.searchResults model.gmailUrl
             ]
 
 
@@ -321,7 +326,7 @@ appTitle =
         , padding 20
         , Font.size 20
         ]
-        (E.text "Calliope")
+        (text "Calliope")
 
 
 viewTopbar : Element msg
@@ -330,30 +335,84 @@ viewTopbar =
         [ appTitle ]
 
 
-spacing =
+space =
     20
+
+
+defaultButtonAttrs =
+    [ Border.width 1
+    , Border.color gray
+    , Border.rounded 5
+    , Font.size 12
+    , padding 3
+    ]
+
+
+graphWidth =
+    800
+
+
+
+{- TODO: Currently set in barGraph not in this file. When we replace the
+   placeholder barGraph with the new visualization we should make the dimensions
+   settable.
+-}
+
+
+graphHeight =
+    450
+
+
+gutter =
+    paddingXY 20 0
+
+
+black =
+    rgb255 0 0 0
+
+
+white =
+    rgb255 255 255 255
+
+
+gray =
+    rgb255 220 220 220
+
+
+dimmedGray =
+    rgba255 120 120 120 50
+
+
+linkColor =
+    rgb255 30 30 200
 
 
 inputTextStyle =
     [ padding 6 ]
 
 
-viewSearchForms : Model -> E.Element Msg
+viewSearchForms : Model -> Element Msg
 viewSearchForms model =
-    E.column
-        [ E.spacing spacing
+    let
+        searchForm =
+            if model.showAdvancedSearch then
+                viewRawSearchForm model.rawSearchForm
+
+            else
+                viewSearchForm model.searchForm
+    in
+    column
+        [ spacing space
         , padding 20
         ]
-        [ E.el [] <|
+        [ el [ width fill ] <|
             Input.text inputTextStyle
                 { onChange = \str -> UpdateGmailUrl str
                 , text = model.gmailUrl
                 , placeholder = Nothing
-                , label = Input.labelAbove [] (E.text "Gmail url")
+                , label = Input.labelAbove [] (text "Gmail url (useful if you are signed in to multiple Gmail accounts simultaneously)")
                 }
-        , viewSearchForm model.searchForm
-        , E.el [] <| E.paragraph [] [ E.text "OR" ]
-        , viewRawSearchForm model.rawSearchForm
+        , searchForm
         ]
 
 
@@ -361,149 +420,184 @@ onOffSwitch checked =
     let
         backgroundColor =
             if checked then
-                E.rgb255 0 0 0
+                black
 
             else
-                E.rgb255 255 255 255
+                white
     in
-    E.el [ Border.solid, Border.color (E.rgb255 200 200 200), Border.width 1, Font.color backgroundColor, E.width (E.px 10), Background.color backgroundColor ] (E.text " ")
+    el [ Border.solid, Border.color gray, Border.width 1, Font.color backgroundColor, width (px 10), Background.color backgroundColor ] (text " ")
 
 
-viewSearchForm : SearchForm -> E.Element Msg
+viewSearchForm : SearchForm -> Element Msg
 viewSearchForm model =
     let
-        searchField : (String -> SearchFormMsg) -> String -> String -> E.Element Msg
+        searchField : (String -> SearchFormMsg) -> String -> String -> Element Msg
         searchField msg val label =
             Input.text inputTextStyle
                 { onChange = \str -> UpdateSearch (msg str)
                 , text = val
                 , placeholder = Nothing
-                , label = Input.labelAbove [] (E.text label)
+                , label = Input.labelAbove [] (text label)
                 }
+
+        columnAttrs =
+            [ spacing space, width (px 500), alignTop ]
+
+        leftSide =
+            column columnAttrs
+                [ searchField Participants model.participants "Participants (applies to From, To, and CC)"
+                , searchField StartDate model.startDate "Start date (\"YYYY-MM-DD\")"
+                , searchField EndDate model.endDate "End date (\"YYYY-MM-DD\")"
+                , searchField TimeZone model.timeZone "Time zone (e.g. -0800 for PST)"
+                ]
+
+        rightSide =
+            column (gutter :: columnAttrs)
+                [ searchField BodyOrSubject model.bodyOrSubject "Body or subject"
+                , row [ width fill ]
+                    [ Input.text (width (fillPortion 4) :: inputTextStyle)
+                        { onChange = \str -> UpdateSearch (Label str)
+                        , text = model.label
+                        , placeholder = Nothing
+                        , label = Input.labelAbove [] (text "Label")
+                        }
+                    , Input.checkbox [ width (fillPortion 1), gutter ]
+                        { onChange = \b -> UpdateSearch StarredOnly
+                        , icon = onOffSwitch
+                        , checked = model.starredOnly
+                        , label = Input.labelLeft [] (text "Starred only")
+                        }
+                    ]
+                , row [ width fill ]
+                    [ Input.text (width (fillPortion 4) :: inputTextStyle)
+                        { onChange = \str -> UpdateSearch (SortField str)
+                        , text = model.sortField
+                        , placeholder = Nothing
+                        , label = Input.labelAbove [] (text "Sort field")
+                        }
+                    , Input.checkbox [ width (fillPortion 1), gutter ]
+                        { onChange = \b -> UpdateSearch Ascending
+                        , icon = onOffSwitch
+                        , checked = model.ascending
+                        , label = Input.labelLeft [] (text "Ascending")
+                        }
+                    ]
+                , searchField Size (String.fromInt model.size) "Size"
+                ]
+
+        formFields =
+            row [] [ leftSide, rightSide ]
+
+        buttons =
+            row []
+                [ Input.button defaultButtonAttrs
+                    { onPress = Just DoSearch
+                    , label = text "Query"
+                    }
+                , Input.button defaultButtonAttrs
+                    { onPress = Just ToggleAdvancedSearch
+                    , label = text "AdvancedSearch"
+                    }
+                ]
     in
-    E.column [ E.spacing spacing ]
-        [ searchField Participants model.participants "Participants (applies to From, To, and CC)"
-        , searchField BodyOrSubject model.bodyOrSubject "Body or subject"
-        , searchField StartDate model.startDate "Start date (\"YYYY-MM-DD\")"
-        , searchField EndDate model.endDate "End date (\"YYYY-MM-DD\")"
-        , searchField TimeZone model.timeZone "Time zone (e.g. -0800 for PST)"
-        , searchField Label model.label "Label"
-        , Input.checkbox []
-            { onChange = \b -> UpdateSearch StarredOnly
-            , icon = onOffSwitch
-            , checked = model.starredOnly
-            , label = Input.labelLeft [] (E.text "Starred only")
-            }
-        , searchField SortField model.sortField "Sort field"
-        , Input.checkbox []
-            { onChange = \b -> UpdateSearch Ascending
-            , icon = onOffSwitch
-            , checked = model.ascending
-            , label = Input.labelLeft [] (E.text "Ascending")
-            }
-        , searchField Size (String.fromInt model.size) "Size"
-        , Input.button
-            [ Border.width 1
-            , Border.color <| E.rgb255 220 220 220
-            , Border.rounded 5
-            , Font.size 12
-            , E.padding 3
-            ]
-            { onPress = Just DoSearch
-            , label = E.text "Query"
-            }
+    row []
+        [ column [] [ formFields, buttons ]
         ]
 
 
-viewRawSearchForm : RawSearchForm -> E.Element Msg
+viewRawSearchForm : RawSearchForm -> Element Msg
 viewRawSearchForm model =
-    E.column
+    column
         []
         [ Input.multiline
-            [ E.height E.shrink ]
+            [ height shrink ]
             { onChange = \str -> UpdateRawSearch (Query str)
             , text = model.query
             , placeholder = Nothing
-            , label = Input.labelAbove [] (E.text "Query")
+            , label = Input.labelAbove [] (text "Query")
             , spellcheck = False
             }
-        , Input.button
-            [ Border.width 1
-            , Border.color <| E.rgb255 220 220 220
-            , Border.rounded 5
-            , Font.size 12
-            , E.padding 3
+        , row []
+            [ Input.button defaultButtonAttrs
+                { onPress = Just DoRawSearch
+                , label = text "Raw query"
+                }
+            , Input.button defaultButtonAttrs
+                { onPress = Just ToggleAdvancedSearch
+                , label = text "Regular search"
+                }
             ]
-            { onPress = Just DoRawSearch
-            , label = E.text "Raw query"
-            }
         ]
 
 
-viewSearchResults : SearchStatus -> SearchResults -> String -> E.Element Msg
-viewSearchResults status searchResults inboxUrl =
+viewSearchResults : Int -> SearchStatus -> SearchResults -> String -> Element Msg
+viewSearchResults windowWidth status searchResults inboxUrl =
     let
         threadUrl =
             \id ->
                 inboxUrl ++ "#inbox/" ++ id
 
-        messageSummaries : List Message -> E.Element Msg
+        messageSummaries : List Message -> Element Msg
         messageSummaries messages =
             let
-                messageRows : List (E.Element Msg)
+                messageRows : List (Element Msg)
                 messageRows =
                     let
-                        row : Message -> E.Element Msg
-                        row message =
+                        messageRow : Message -> Element Msg
+                        messageRow message =
                             let
                                 summary =
-                                    E.row [ E.spacingXY 20 5, Ev.onClick (Toggle message.id) ]
-                                        [ E.el [ E.width (E.px 280) ] (E.text message.date)
-                                        , E.el [ E.width (E.px 300), E.clip ] (E.text message.from)
-                                        , E.row []
-                                            [ E.el [] <| E.text message.subject
-                                            , E.el [ Font.color <| E.rgba255 120 120 120 50 ] <| E.text <| " – " ++ message.snippet
+                                    row [ spacingXY 20 5, Events.onClick (Toggle message.id) ]
+                                        [ el [ width (px 280) ] (text message.date)
+                                        , el [ width (px 300), clip ] (text message.from)
+                                        , row []
+                                            [ el [] <| text message.subject
+                                            , el [ Font.color dimmedGray ] <| text (" – " ++ message.snippet)
                                             ]
                                         ]
 
                                 expanded =
+                                    let
+                                        iframe =
+                                            Html.iframe [ Attributes.width windowWidth, Attributes.height graphHeight, Attributes.src ("/message/" ++ message.id) ] []
+                                    in
                                     if message.expanded then
-                                        E.column []
-                                            [ E.link [ Font.color (E.rgb255 30 30 200) ]
+                                        column []
+                                            [ link [ Font.color linkColor ]
                                                 { url = threadUrl message.threadId
-                                                , label = E.text "Open in Gmail"
+                                                , label = text "Open in Gmail"
                                                 }
-                                            , E.el [] (E.text message.body)
+                                            , el [ width fill ] (html iframe)
                                             ]
 
                                     else
-                                        E.none
+                                        none
                             in
-                            E.column [] [ summary, expanded ]
+                            column [] [ summary, expanded ]
                     in
-                    List.map row messages
+                    List.map messageRow messages
             in
-            E.column [] messageRows
+            column [] messageRows
     in
     case status of
         Loading ->
-            E.el [] (E.text "Loading …")
+            el [] (text "Loading …")
 
         Success ->
             if List.length searchResults.messages > 0 then
-                E.column []
-                    [ E.el [ E.width (E.px 800), E.height E.fill ] (E.html <| Html.div [ Attributes.id "graph" ] [ barGraph (timeSeries searchResults.chartData) ])
+                column []
+                    [ el [ width (px graphWidth), height fill ] (html <| Html.div [ Attributes.id "graph" ] [ barGraph (timeSeries searchResults.chartData) ])
                     , messageSummaries searchResults.messages
                     ]
 
             else
-                E.el [] (E.text "No messages found")
+                el [] (text "No messages found")
 
         Failure e ->
-            E.el [] <| E.text ("Search error:" ++ e)
+            el [] <| text ("Search error:" ++ e)
 
         Empty ->
-            E.none
+            none
 
 
 timeSeries : List ChartDay -> List ( Time.Posix, Float )

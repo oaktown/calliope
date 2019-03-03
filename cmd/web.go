@@ -9,6 +9,7 @@ import (
   "github.com/spf13/cobra"
   "log"
   "net/http"
+  "regexp"
   "strconv"
 )
 
@@ -37,18 +38,6 @@ func startServer() {
     web.ShowStats(r, w)
   })
 
-  fs := http.FileServer(http.Dir("public/assets"))
-  http.Handle("/assets/", http.StripPrefix("/assets/", fs))
-
-  http.HandleFunc("/old", func(w http.ResponseWriter, r *http.Request) {
-    if r.URL.Path == "/old" {
-      options:= getOptionsFromRequest(r)
-      web.ShowOldHomePage(r, w, options)
-    } else {
-      fmt.Fprint(w, "Nothing to see here.")
-    }
-  })
-
   http.HandleFunc("/api/search", func(w http.ResponseWriter, r *http.Request) {
     svc := misc.GetStoreClient()
     options:= getOptionsFromRequest(r)
@@ -61,11 +50,15 @@ func startServer() {
   })
 
   http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-    // TODO: Load Elm app
-    if r.URL.Path == "/" {
-      web.ShowHomePage(r, w)
+    pat := regexp.MustCompile("/message/([^/]+)")
+    matches := pat.FindStringSubmatch(r.URL.Path)
+    if len(matches) == 2 {
+      id:= matches[1]
+      web.ShowMessage(id, w, r)
+    } else if r.URL.Path == "/" {
+      fmt.Fprint(w, "API server started. Ready to accept connections.")
     } else {
-      fmt.Fprint(w, "Nothing to see here.")
+      w.WriteHeader(http.StatusNotFound)
     }
   })
 

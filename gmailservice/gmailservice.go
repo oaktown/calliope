@@ -228,20 +228,24 @@ func doGet(d *Downloader, id string) (*gmail.Message, error) {
   return d.Svc.Users.Messages.Get("me", id).Do()
 }
 
-func BodyText(msg gmail.Message) string {
+func BodyText(msg gmail.Message, mimeType string) string {
   // TODO: We might want to see if there are other places the body can be located.
-  parts := msg.Payload.Parts
-  //TODO: when there is no body
   if msg.Payload.Body.Data != "" {
+    // TODO: when there is no body
     body, _ := base64.URLEncoding.DecodeString(msg.Payload.Body.Data)
     return string(body)
   } else {
-    for _, part := range parts {
-      if part.MimeType == "text/plain" {
-        encodedBody := part.Body.Data
-        body, _ := base64.URLEncoding.DecodeString(encodedBody)
-        return string(body)
-      }
+    encodedBody := GetBodyPartByMimeType(msg, mimeType)
+    body, _ := base64.URLEncoding.DecodeString(encodedBody)
+    return string(body)
+  }
+}
+
+func GetBodyPartByMimeType(msg gmail.Message, mimeType string) string {
+  parts := msg.Payload.Parts
+  for _, part := range parts {
+    if part.MimeType == mimeType {
+      return part.Body.Data
     }
   }
   return ""
@@ -264,7 +268,7 @@ func ExtractHeader(gmail gmail.Message, field string) string {
 func GmailToMessage(gmail gmail.Message, inboxUrl string, downloaded time.Time) (store.Message, error) {
   // TODO: decode all of the fields, not just plain-text body
   date := time.Unix(gmail.InternalDate/1000, 0)
-  body := BodyText(gmail)
+  body := BodyText(gmail, "text/plain")
   message := store.Message{
     Id:                  gmail.Id,
     Url:                 fmt.Sprintf("%v#inbox/%v", inboxUrl, gmail.ThreadId),
