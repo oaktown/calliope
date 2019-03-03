@@ -15,7 +15,7 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "calliope",
 	Short: "calliope downloads, searches, and produces reports for your email",
-	Long: `Calliope helps you find important email messages and create reports for future reference.`,
+	Long:  `Calliope helps you find important email messages and create reports for future reference.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	//Run: func(cmd *cobra.Command, args []string) { },
