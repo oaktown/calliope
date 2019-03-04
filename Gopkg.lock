@@ -294,6 +294,7 @@
     "github.com/spf13/cobra",
     "github.com/spf13/viper",
     "golang.org/x/net/context",
+    "golang.org/x/net/html",
     "golang.org/x/oauth2",
     "golang.org/x/oauth2/google",
     "google.golang.org/api/gmail/v1",

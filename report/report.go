@@ -2,10 +2,14 @@ package report
 
 import (
 	"encoding/base64"
+	"fmt"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/oaktown/calliope/gmailservice"
 	"github.com/oaktown/calliope/store"
+	parser "golang.org/x/net/html"
 	"html/template"
+	"log"
+	"strings"
 )
 
 type MessageWithHtml struct {
@@ -75,8 +79,22 @@ func GetMessageHtmlBody(message store.Message) string {
 		unsafeHtml = "<pre>\n" + message.Body + "\n</pre>"
 	}
 
+	var wellFormedHtml string
+	r := strings.NewReader(unsafeHtml)
+	t, err := parser.Parse(r)
+	if err != nil {
+		wellFormedHtml = fmt.Sprintf("<pre>Error: Could not parse (golang). %v</pre>", err)
+	} else {
+		var b strings.Builder
+		err = parser.Render(&b, t)
+		if err != nil {
+			log.Println("Error occurred rendering: ", err)
+		}
+		wellFormedHtml = b.String()
+	}
+
 	p := bluemonday.UGCPolicy()
-	html := p.Sanitize(unsafeHtml)
+	html := p.Sanitize(wellFormedHtml)
 	return html
 }
 
