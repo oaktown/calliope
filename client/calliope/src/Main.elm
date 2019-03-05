@@ -256,10 +256,16 @@ update msg model =
                                     let
                                         maybeHtml =
                                             Html.Parser.run message.bodyHtml
+
+                                        style =
+                                            Attributes.style
+
+                                        scrollAttrs =
+                                            [ clip, Element.scrollbars, Element.height <| px graphHeight ]
                                     in
                                     case maybeHtml of
                                         Ok parsed ->
-                                            ( message, Just <| html <| Html.div [] (Html.Parser.Util.toVirtualDom parsed) )
+                                            ( message, Just <| el scrollAttrs (html <| Html.div [] (Html.Parser.Util.toVirtualDom parsed)) )
 
                                         Err _ ->
                                             ( message, Just <| el [] (text "Error parsing html") )
