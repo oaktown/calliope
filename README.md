@@ -102,9 +102,11 @@ brew install elm
 elm --version # Should return 0.19 or higher
 npm install -g create-elm-app # Make sure you are running Node version >=8
 npm install -g elm-format
+cd client/calliope
+yarn install # installs http-proxy-middleware; used by dev server
 ```
 
-Elm code is in `client/calliope`.
+Elm code is in `client/calliope`. We will need to run npm  
 
 We use `create-elm-app` to serve the app in developer mode (including proxying to the API server). It also can create an optimized build for production.
 
