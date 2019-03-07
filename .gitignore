@@ -1,5 +1,5 @@
 # let's not checkin the built executable
-/calliope
+/src/backend/calliope
 
 # Binaries for programs and plugins
 *.exe
@@ -15,8 +15,8 @@
 *.out
 
 # ignore secrets
-client_secret.json
-*oauth_token.json
+/src/backend/client_secret.json
+/src/backend/*oauth_token.json
 .envrc
 
 # ignore Mac files
