@@ -1,4 +1,4 @@
-module TestMain exposing (searchResultsDecoderTest, timeSeriesTest)
+module TestMain exposing (searchResultsDecoderTest, timeSeriesTest, updateTest)
 
 import Expect
 import Json.Decode as Decode
