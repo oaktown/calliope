@@ -31,9 +31,9 @@ import Url.Builder
 main =
     Browser.application
         { init = init
-        , update = update
+        , update = updateWithKey
         , subscriptions = subscriptions
-        , view = view
+        , view = viewWithKey
         , onUrlRequest = onUrlRequest
         , onUrlChange = onUrlChange
         }
@@ -54,15 +54,15 @@ reactor =
         url =
             Url.Builder.absolute [] []
 
-        reactorInit : () -> Url.Url -> Navigation.Key -> ( Model, Cmd Msg )
+        reactorInit : () -> Url.Url -> Navigation.Key -> ( ModelWithKey, Cmd Msg )
         reactorInit _ =
             init 800
     in
     Browser.application
         { init = reactorInit
-        , update = update
+        , update = updateWithKey
         , subscriptions = subscriptions
-        , view = view
+        , view = viewWithKey
         , onUrlRequest = onUrlRequest
         , onUrlChange = onUrlChange
         }
@@ -91,9 +91,14 @@ type alias RawSearchForm =
     }
 
 
-type alias Model =
+type alias ModelWithKey =
     { key : Navigation.Key
-    , url : Url.Url
+    , model : Model
+    }
+
+
+type alias Model =
+    { url : Url.Url
     , gmailUrl : String
     , searchForm : SearchForm
     , rawSearchForm : RawSearchForm
@@ -152,7 +157,7 @@ type alias SearchResults =
     }
 
 
-init : Int -> Url.Url -> Navigation.Key -> ( Model, Cmd Msg )
+init : Int -> Url.Url -> Navigation.Key -> ( ModelWithKey, Cmd Msg )
 init width url key =
     let
         defaultSearchForm =
@@ -177,15 +182,17 @@ init width url key =
             SearchResults "" [] []
     in
     ( { key = key
-      , url = url
-      , gmailUrl = "https://mail.google.com/mail/"
-      , searchForm = defaultSearchForm
-      , rawSearchForm = defaultRawSearchForm
-      , searchResults = emptySearchResults
-      , expandedMessageId = ""
-      , searchStatus = Empty
-      , showAdvancedSearch = False
-      , windowWidth = width
+      , model =
+            { url = url
+            , gmailUrl = "https://mail.google.com/mail/"
+            , searchForm = defaultSearchForm
+            , rawSearchForm = defaultRawSearchForm
+            , searchResults = emptySearchResults
+            , expandedMessageId = ""
+            , searchStatus = Empty
+            , showAdvancedSearch = False
+            , windowWidth = width
+            }
       }
     , Cmd.none
     )
@@ -226,20 +233,35 @@ type Msg
     | UrlChanged Url.Url
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+updateWithKey : Msg -> ModelWithKey -> ( ModelWithKey, Cmd Msg )
+updateWithKey msg modelWithKey =
     case msg of
         UrlChangeRequested urlRequest ->
             case urlRequest of
                 Internal url ->
-                    ( model
-                    , Navigation.pushUrl model.key (Url.toString url)
+                    ( modelWithKey
+                    , Navigation.pushUrl modelWithKey.key (Url.toString url)
                     )
 
                 External url ->
-                    ( model
+                    ( modelWithKey
                     , Navigation.load url
                     )
+
+        _ ->
+            let
+                ( newModel, newMsg ) =
+                    update msg modelWithKey.model
+            in
+            ( { modelWithKey | model = newModel }, newMsg )
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        UrlChangeRequested _ ->
+            -- Should never happen
+            ( model, Cmd.none )
 
         UrlChanged url ->
             ( { model | url = url }, Cmd.none )
@@ -409,14 +431,19 @@ updateSearchForm msg model =
 -- SUBSCRIPTIONS
 
 
-subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions : ModelWithKey -> Sub Msg
+subscriptions _ =
     Browser.Events.onResize (\x y -> Resize x y)
 
 
 
 --    Sub.none
 -- VIEW
+
+
+viewWithKey : ModelWithKey -> Document Msg
+viewWithKey modelWithKey =
+    view modelWithKey.model
 
 
 view : Model -> Document Msg
