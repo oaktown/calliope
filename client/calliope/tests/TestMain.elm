@@ -150,9 +150,20 @@ searchResults =
     { emptySearchResults | messagesWithHtml = threeWrappedMessages }
 
 
+url =
+    { protocol = Http
+    , host = "localhost"
+    , port_ = Just 3000
+    , path = "/"
+    , query = Nothing
+    , fragment = Nothing
+    }
+
+
 defaultModel : Model
 defaultModel =
-    { gmailUrl = "https://mail.google.com/mail/"
+    { url = url
+    , gmailUrl = "https://mail.google.com/mail/"
     , searchForm = SearchForm "" "" "" "" "" "" False "Date" False 100
     , rawSearchForm = RawSearchForm ""
     , searchResults = searchResults

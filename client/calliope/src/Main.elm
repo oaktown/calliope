@@ -1,8 +1,9 @@
-module Main exposing (ApiSearchResults, ChartDay, Message, MessageWrapper, Model, Msg(..), RawSearchForm, RawSearchFormMsg(..), SearchForm, SearchFormMsg(..), SearchResults, SearchStatus(..), appTitle, black, chartDayDecoder, defaultButtonAttrs, dimmedGray, doRawSearch, doSearch, graphHeight, graphWidth, gray, gutter, init, inputTextStyle, linkColor, main, messageDecoder, onOffSwitch, reactor, searchResultsDecoder, space, subscriptions, timeSeries, update, updateRawSearchForm, updateSearchForm, view, viewRawSearchForm, viewSearchForm, viewSearchForms, viewSearchResults, viewTopbar, white)
+module Main exposing (ApiSearchResults, ChartDay, Message, MessageWrapper, Model, Msg(..), RawSearchForm, RawSearchFormMsg(..), SearchForm, SearchFormMsg(..), SearchResults, SearchStatus(..), appTitle, black, chartDayDecoder, defaultButtonAttrs, dimmedGray, doRawSearch, doSearch, graphHeight, graphWidth, gray, gutter, init, inputTextStyle, linkColor, main, messageDecoder, onOffSwitch, onUrlChange, onUrlRequest, reactor, searchResultsDecoder, space, subscriptions, timeSeries, update, updateRawSearchForm, updateSearchForm, view, viewRawSearchForm, viewSearchForm, viewSearchForms, viewSearchResults, viewTopbar, white)
 
 import BarGraph exposing (barGraph)
-import Browser
+import Browser exposing (Document, UrlRequest(..))
 import Browser.Events
+import Browser.Navigation as Navigation
 import Debug
 import Element exposing (Element, alignTop, clip, column, el, fill, fillPortion, height, html, layout, link, none, padding, paddingXY, px, rgb255, rgba255, row, shrink, spacing, spacingXY, text, width)
 import Element.Background as Background
@@ -19,6 +20,7 @@ import Iso8601
 import Json.Decode as Decode exposing (Decoder, field, int, list, string)
 import Json.Decode.Pipeline exposing (required)
 import Time
+import Url
 import Url.Builder
 
 
@@ -27,25 +29,42 @@ import Url.Builder
 
 
 main =
-    Browser.element
+    Browser.application
         { init = init
         , update = update
         , subscriptions = subscriptions
         , view = view
+        , onUrlRequest = onUrlRequest
+        , onUrlChange = onUrlChange
         }
+
+
+onUrlRequest : UrlRequest -> Msg
+onUrlRequest request =
+    UrlChangeRequested request
+
+
+onUrlChange : Url.Url -> Msg
+onUrlChange url =
+    UrlChanged url
 
 
 reactor =
     let
-        reactorInit : () -> ( Model, Cmd Msg )
+        url =
+            Url.Builder.absolute [] []
+
+        reactorInit : () -> Url.Url -> Navigation.Key -> ( Model, Cmd Msg )
         reactorInit _ =
             init 800
     in
-    Browser.element
+    Browser.application
         { init = reactorInit
         , update = update
         , subscriptions = subscriptions
         , view = view
+        , onUrlRequest = onUrlRequest
+        , onUrlChange = onUrlChange
         }
 
 
@@ -73,7 +92,9 @@ type alias RawSearchForm =
 
 
 type alias Model =
-    { gmailUrl : String
+    { key : Navigation.Key
+    , url : Url.Url
+    , gmailUrl : String
     , searchForm : SearchForm
     , rawSearchForm : RawSearchForm
     , searchResults : SearchResults
@@ -131,8 +152,8 @@ type alias SearchResults =
     }
 
 
-init : Int -> ( Model, Cmd Msg )
-init flags =
+init : Int -> Url.Url -> Navigation.Key -> ( Model, Cmd Msg )
+init width url key =
     let
         defaultSearchForm =
             SearchForm "" "" "" "" "" "" False "Date" False 100
@@ -155,14 +176,16 @@ init flags =
         emptySearchResults =
             SearchResults "" [] []
     in
-    ( { gmailUrl = "https://mail.google.com/mail/"
+    ( { key = key
+      , url = url
+      , gmailUrl = "https://mail.google.com/mail/"
       , searchForm = defaultSearchForm
       , rawSearchForm = defaultRawSearchForm
       , searchResults = emptySearchResults
       , expandedMessageId = ""
       , searchStatus = Empty
       , showAdvancedSearch = False
-      , windowWidth = flags
+      , windowWidth = width
       }
     , Cmd.none
     )
@@ -199,11 +222,28 @@ type Msg
     | Resize Int Int
     | GotSearch (Result Http.Error ApiSearchResults)
     | Toggle String
+    | UrlChangeRequested UrlRequest
+    | UrlChanged Url.Url
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        UrlChangeRequested urlRequest ->
+            case urlRequest of
+                Internal url ->
+                    ( model
+                    , Navigation.pushUrl model.key (Url.toString url)
+                    )
+
+                External url ->
+                    ( model
+                    , Navigation.load url
+                    )
+
+        UrlChanged url ->
+            ( { model | url = url }, Cmd.none )
+
         UpdateGmailUrl gmailUrl ->
             ( { model | gmailUrl = gmailUrl }, Cmd.none )
 
@@ -379,14 +419,18 @@ subscriptions model =
 -- VIEW
 
 
-view : Model -> Html Msg
+view : Model -> Document Msg
 view model =
-    layout [ Font.size 12 ] <|
-        column [ width fill ]
-            [ viewTopbar
-            , viewSearchForms model
-            , viewSearchResults model
-            ]
+    { title = "Calliope – therapy for email monsters"
+    , body =
+        [ layout [ Font.size 12 ] <|
+            column [ width fill ]
+                [ viewTopbar
+                , viewSearchForms model
+                , viewSearchResults model
+                ]
+        ]
+    }
 
 
 appTitle : Element msg
