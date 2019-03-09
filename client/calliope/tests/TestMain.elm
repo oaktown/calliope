@@ -92,22 +92,22 @@ toggleIdTests =
             [ test "the target should be listed as expanded" <|
                 \_ ->
                     Expect.equal "2" updated.expandedMessageId
-            , test "the target should have parsed html" <|
+            , test "the target should have a message body" <|
                 \_ ->
                     let
-                        expanded =
+                        idsWithMessageBodies =
                             let
                                 appendIfParsed : MessageWrapper -> List String -> List String
-                                appendIfParsed ( message, parsed ) parsedList =
-                                    if parsed /= Nothing then
-                                        message.id :: parsedList
+                                appendIfParsed ( message, parsedHtml ) ids =
+                                    if parsedHtml /= Nothing then
+                                        message.id :: ids
 
                                     else
-                                        parsedList
+                                        ids
                             in
                             List.foldl appendIfParsed [] updated.searchResults.messagesWithHtml
                     in
-                    Expect.equalLists [ "2" ] expanded
+                    Expect.equalLists [ "2" ] idsWithMessageBodies
             ]
         , describe "when target is already expanded" <|
             let

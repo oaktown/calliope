@@ -316,21 +316,15 @@ update msg model =
 
                                 Nothing ->
                                     let
-                                        maybeHtml =
+                                        messageBody =
                                             Html.Parser.run message.bodyHtml
-
-                                        style =
-                                            Attributes.style
-
-                                        scrollAttrs =
-                                            [ clip, Element.scrollbars, Element.height <| px graphHeight ]
+                                                |> Result.toMaybe
+                                                |> Maybe.andThen (\parsed -> Just (Html.div [] (Html.Parser.Util.toVirtualDom parsed)))
+                                                |> Maybe.withDefault (Html.text "Error parsing html")
+                                                |> html
+                                                |> el [ clip, Element.scrollbars, Element.height <| px graphHeight ]
                                     in
-                                    case maybeHtml of
-                                        Ok parsed ->
-                                            ( message, Just <| el scrollAttrs (html <| Html.div [] (Html.Parser.Util.toVirtualDom parsed)) )
-
-                                        Err _ ->
-                                            ( message, Just <| el [] (text "Error parsing html") )
+                                    ( message, Just messageBody )
                 in
                 ( { model | searchResults = searchResults, expandedMessageId = id }, Cmd.none )
 
