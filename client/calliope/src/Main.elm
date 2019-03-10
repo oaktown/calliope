@@ -105,7 +105,6 @@ type alias Model =
     , searchResults : SearchResults
     , expandedMessageId : String
     , searchStatus : SearchStatus
-    , showAdvancedSearch : Bool
     , windowWidth : Int
     }
 
@@ -180,6 +179,13 @@ init width url key =
 
         emptySearchResults =
             SearchResults "" [] []
+
+        cmd =
+            if url.path == "/" then
+                Navigation.pushUrl key "/search"
+
+            else
+                Cmd.none
     in
     ( { key = key
       , model =
@@ -190,11 +196,10 @@ init width url key =
             , searchResults = emptySearchResults
             , expandedMessageId = ""
             , searchStatus = Empty
-            , showAdvancedSearch = False
             , windowWidth = width
             }
       }
-    , Cmd.none
+    , cmd
     )
 
 
@@ -248,6 +253,20 @@ updateWithKey msg modelWithKey =
                     , Navigation.load url
                     )
 
+        ToggleAdvancedSearch ->
+            let
+                model =
+                    modelWithKey.model
+
+                cmd =
+                    if model.url.path == "/search" then
+                        Navigation.pushUrl modelWithKey.key "/advanced-search"
+
+                    else
+                        Navigation.pushUrl modelWithKey.key "/search"
+            in
+            ( modelWithKey, cmd )
+
         _ ->
             let
                 ( newModel, newMsg ) =
@@ -260,6 +279,10 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         UrlChangeRequested _ ->
+            -- Should never happen
+            ( model, Cmd.none )
+
+        ToggleAdvancedSearch ->
             -- Should never happen
             ( model, Cmd.none )
 
@@ -282,9 +305,6 @@ update msg model =
               }
             , Cmd.none
             )
-
-        ToggleAdvancedSearch ->
-            ( { model | showAdvancedSearch = not model.showAdvancedSearch }, Cmd.none )
 
         Toggle id ->
             if id == model.expandedMessageId then
@@ -530,7 +550,7 @@ viewSearchForms : Model -> Element Msg
 viewSearchForms model =
     let
         searchForm =
-            if model.showAdvancedSearch then
+            if model.url.path == "/advanced-search" then
                 viewRawSearchForm model.rawSearchForm
 
             else
