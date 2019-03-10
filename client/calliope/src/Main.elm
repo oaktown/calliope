@@ -156,6 +156,10 @@ type alias SearchResults =
     }
 
 
+emptySearchResults =
+    SearchResults "" [] []
+
+
 init : Int -> Url.Url -> Navigation.Key -> ( ModelWithKey, Cmd Msg )
 init width url key =
     let
@@ -176,9 +180,6 @@ init width url key =
     }
   ]
 }"""
-
-        emptySearchResults =
-            SearchResults "" [] []
 
         cmd =
             if url.path == "/" then
@@ -291,7 +292,7 @@ updateWithKey msg modelWithKey =
                     else
                         Navigation.pushUrl modelWithKey.key "/search"
             in
-            ( modelWithKey, cmd )
+            ( { modelWithKey | model = { model | searchResults = emptySearchResults } }, cmd )
 
         DoSearch ->
             ( { modelWithKey | model = { model | searchStatus = Loading } }, doSearch model.searchForm key )
@@ -596,7 +597,7 @@ viewSearchForms model =
         ]
         [ el [ width fill ] <|
             Input.text inputTextStyle
-                { onChange = \str -> UpdateGmailUrl str
+                { onChange = UpdateGmailUrl
                 , text = model.gmailUrl
                 , placeholder = Nothing
                 , label = Input.labelAbove [] (text "Gmail url (useful if you are signed in to multiple Gmail accounts simultaneously)")
@@ -623,7 +624,7 @@ viewSearchForm model =
         searchField : (String -> SearchFormMsg) -> String -> String -> Element Msg
         searchField msg val label =
             Input.text inputTextStyle
-                { onChange = \str -> UpdateSearch (msg str)
+                { onChange = UpdateSearch << msg
                 , text = val
                 , placeholder = Nothing
                 , label = Input.labelAbove [] (text label)
@@ -645,13 +646,13 @@ viewSearchForm model =
                 [ searchField BodyOrSubject model.bodyOrSubject "Body or subject"
                 , row [ width fill ]
                     [ Input.text (width (fillPortion 4) :: inputTextStyle)
-                        { onChange = \str -> UpdateSearch (Label str)
+                        { onChange = UpdateSearch << Label
                         , text = model.label
                         , placeholder = Nothing
                         , label = Input.labelAbove [] (text "Label")
                         }
                     , Input.checkbox [ width (fillPortion 1), gutter ]
-                        { onChange = \b -> UpdateSearch StarredOnly
+                        { onChange = \_ -> UpdateSearch StarredOnly
                         , icon = onOffSwitch
                         , checked = model.starredOnly
                         , label = Input.labelLeft [] (text "Starred only")
@@ -659,13 +660,13 @@ viewSearchForm model =
                     ]
                 , row [ width fill ]
                     [ Input.text (width (fillPortion 4) :: inputTextStyle)
-                        { onChange = \str -> UpdateSearch (SortField str)
+                        { onChange = UpdateSearch << SortField
                         , text = model.sortField
                         , placeholder = Nothing
                         , label = Input.labelAbove [] (text "Sort field")
                         }
                     , Input.checkbox [ width (fillPortion 1), gutter ]
-                        { onChange = \b -> UpdateSearch Ascending
+                        { onChange = \_ -> UpdateSearch Ascending
                         , icon = onOffSwitch
                         , checked = model.ascending
                         , label = Input.labelLeft [] (text "Ascending")
@@ -722,9 +723,6 @@ viewRawSearchForm model =
 viewSearchResults : Model -> Element Msg
 viewSearchResults model =
     let
-        windowWidth =
-            model.windowWidth
-
         status =
             model.searchStatus
 
