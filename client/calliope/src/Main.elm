@@ -184,6 +184,9 @@ init width url key =
             if url.path == "/" then
                 Navigation.pushUrl key "/search"
 
+            else if url.path == "/search" || url.path == "/advanced-search" then
+                cmdForUrl url
+
             else
                 Cmd.none
     in
@@ -201,6 +204,22 @@ init width url key =
       }
     , cmd
     )
+
+
+cmdForUrl : Url.Url -> Cmd Msg
+cmdForUrl url =
+    let
+        query =
+            Maybe.withDefault "" url.query
+    in
+    if (url.path == "/search" || url.path == "/advanced-search") && not (String.isEmpty query) then
+        Http.get
+            { url = "/api/search?" ++ query
+            , expect = Http.expectJson GotSearch searchResultsDecoder
+            }
+
+    else
+        Cmd.none
 
 
 
@@ -240,6 +259,13 @@ type Msg
 
 updateWithKey : Msg -> ModelWithKey -> ( ModelWithKey, Cmd Msg )
 updateWithKey msg modelWithKey =
+    let
+        model =
+            modelWithKey.model
+
+        key =
+            modelWithKey.key
+    in
     case msg of
         UrlChangeRequested urlRequest ->
             case urlRequest of
@@ -255,8 +281,8 @@ updateWithKey msg modelWithKey =
 
         ToggleAdvancedSearch ->
             let
-                model =
-                    modelWithKey.model
+                d =
+                    Debug.log "path" model.url.path
 
                 cmd =
                     if model.url.path == "/search" then
@@ -266,6 +292,12 @@ updateWithKey msg modelWithKey =
                         Navigation.pushUrl modelWithKey.key "/search"
             in
             ( modelWithKey, cmd )
+
+        DoSearch ->
+            ( { modelWithKey | model = { model | searchStatus = Loading } }, doSearch model.searchForm key )
+
+        DoRawSearch ->
+            ( { modelWithKey | model = { model | searchStatus = Loading } }, doRawSearch model.rawSearchForm key )
 
         _ ->
             let
@@ -286,8 +318,16 @@ update msg model =
             -- Should never happen
             ( model, Cmd.none )
 
+        DoSearch ->
+            -- Should never happen
+            ( model, Cmd.none )
+
+        DoRawSearch ->
+            -- Should never happen
+            ( model, Cmd.none )
+
         UrlChanged url ->
-            ( { model | url = url }, Cmd.none )
+            ( { model | url = url }, cmdForUrl url )
 
         UpdateGmailUrl gmailUrl ->
             ( { model | gmailUrl = gmailUrl }, Cmd.none )
@@ -350,12 +390,6 @@ update msg model =
 
         Resize x _ ->
             ( { model | windowWidth = x }, Cmd.none )
-
-        DoSearch ->
-            ( { model | searchStatus = Loading }, doSearch model.searchForm )
-
-        DoRawSearch ->
-            ( { model | searchStatus = Loading }, doRawSearch model.rawSearchForm )
 
         GotSearch results ->
             case results of
@@ -791,8 +825,8 @@ timeSeries data =
 -- HTTP
 
 
-doSearch : SearchForm -> Cmd Msg
-doSearch searchForm =
+doSearch : SearchForm -> Navigation.Key -> Cmd Msg
+doSearch searchForm key =
     let
         string =
             Url.Builder.string
@@ -822,27 +856,21 @@ doSearch searchForm =
             ]
 
         url =
-            Url.Builder.absolute [ "api", "search" ] params
+            Url.Builder.absolute [ "search" ] params
     in
-    Http.get
-        { url = url
-        , expect = Http.expectJson GotSearch searchResultsDecoder
-        }
+    Navigation.pushUrl key url
 
 
-doRawSearch : RawSearchForm -> Cmd Msg
-doRawSearch rawSearchForm =
+doRawSearch : RawSearchForm -> Navigation.Key -> Cmd Msg
+doRawSearch rawSearchForm key =
     let
         string =
             Url.Builder.string
 
         url =
-            Url.Builder.absolute [ "api", "search" ] [ string "query" rawSearchForm.query ]
+            Url.Builder.absolute [ "advanced-search" ] [ string "query" rawSearchForm.query ]
     in
-    Http.get
-        { url = url
-        , expect = Http.expectJson GotSearch searchResultsDecoder
-        }
+    Navigation.pushUrl key url
 
 
 
