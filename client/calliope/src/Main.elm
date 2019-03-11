@@ -20,8 +20,10 @@ import Iso8601
 import Json.Decode as Decode exposing (Decoder, field, int, list, string)
 import Json.Decode.Pipeline exposing (required)
 import Time
-import Url
+import Url exposing (Protocol(..))
 import Url.Builder
+import Url.Parser as Parser exposing ((</>), (<?>), Parser)
+import Url.Parser.Query as Q
 
 
 
@@ -66,6 +68,54 @@ reactor =
         , onUrlRequest = onUrlRequest
         , onUrlChange = onUrlChange
         }
+
+
+type Route
+    = Home
+    | Search SearchForm
+    | AdvancedSearch RawSearchForm
+    | OtherRoute
+
+
+routeParser : Parser (Route -> a) a
+routeParser =
+    let
+        valS maybeString =
+            Maybe.withDefault "" maybeString
+
+        valI maybeInt =
+            Maybe.withDefault 100 maybeInt
+
+        valB maybeString =
+            Maybe.withDefault "false" maybeString == "true"
+
+        oneOf =
+            Parser.oneOf
+
+        map =
+            Parser.map
+
+        s =
+            Parser.s
+
+        toSearchRoute : Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe Int -> Route
+        toSearchRoute participants bodyOrSubject startDate endDate timeZone label_ starredOnly sortField ascending size_ =
+            Search <| SearchForm (valS participants) (valS bodyOrSubject) (valS startDate) (valS endDate) (valS timeZone) (valS label_) (valB starredOnly) (valS sortField) (valB ascending) (valI size_)
+
+        toAdvancedSearchRoute : Maybe String -> Route
+        toAdvancedSearchRoute query =
+            AdvancedSearch <| RawSearchForm (Maybe.withDefault defaultQuery query)
+    in
+    oneOf
+        [ map toSearchRoute (s "search" <?> Q.string "participants" <?> Q.string "bodyOrSubject" <?> Q.string "startDate" <?> Q.string "endDate" <?> Q.string "timeZone" <?> Q.string "label" <?> Q.string "starredOnly" <?> Q.string "sortField" <?> Q.string "ascending" <?> Q.int "size")
+        , map toAdvancedSearchRoute (s "advanced-search" <?> Q.string "query")
+        , map Home Parser.top
+        ]
+
+
+toRoute : Url.Url -> Route
+toRoute url =
+    Maybe.withDefault OtherRoute (Parser.parse routeParser url)
 
 
 
@@ -160,6 +210,22 @@ emptySearchResults =
     SearchResults "" [] []
 
 
+defaultQuery =
+    """{
+         "query": {
+           "match_all": {}
+         },
+         "size": 100,
+         "sort": [
+           {
+             "Date": {
+               "order": "desc"
+             }
+           }
+         ]
+       }"""
+
+
 init : Int -> Url.Url -> Navigation.Key -> ( ModelWithKey, Cmd Msg )
 init width url key =
     let
@@ -167,32 +233,9 @@ init width url key =
             SearchForm "" "" "" "" "" "" False "Date" False 100
 
         defaultRawSearchForm =
-            RawSearchForm """{
-  "query": {
-    "match_all": {}
-  },
-  "size": 100,
-  "sort": [
-    {
-      "Date": {
-        "order": "desc"
-      }
-    }
-  ]
-}"""
+            RawSearchForm defaultQuery
 
-        cmd =
-            if url.path == "/" then
-                Navigation.pushUrl key "/search"
-
-            else if url.path == "/search" || url.path == "/advanced-search" then
-                cmdForUrl url
-
-            else
-                Cmd.none
-    in
-    ( { key = key
-      , model =
+        defaultModel =
             { url = url
             , gmailUrl = "https://mail.google.com/mail/"
             , searchForm = defaultSearchForm
@@ -202,6 +245,23 @@ init width url key =
             , searchStatus = Empty
             , windowWidth = width
             }
+
+        ( model, cmd ) =
+            case toRoute url of
+                Home ->
+                    ( defaultModel, Navigation.pushUrl key "/search" )
+
+                Search form ->
+                    ( { defaultModel | searchForm = form }, cmdForUrl url )
+
+                AdvancedSearch form ->
+                    ( { defaultModel | rawSearchForm = form }, cmdForUrl url )
+
+                OtherRoute ->
+                    ( defaultModel, Cmd.none )
+    in
+    ( { key = key
+      , model = model
       }
     , cmd
     )
@@ -328,7 +388,15 @@ update msg model =
             ( model, Cmd.none )
 
         UrlChanged url ->
-            ( { model | url = url }, cmdForUrl url )
+            case toRoute url of
+                Search form ->
+                    ( { model | searchForm = form, url = url }, cmdForUrl url )
+
+                AdvancedSearch form ->
+                    ( { model | rawSearchForm = form, url = url }, cmdForUrl url )
+
+                _ ->
+                    ( model, Cmd.none )
 
         UpdateGmailUrl gmailUrl ->
             ( { model | gmailUrl = gmailUrl }, Cmd.none )
