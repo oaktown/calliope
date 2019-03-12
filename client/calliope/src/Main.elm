@@ -80,6 +80,7 @@ type Route
 routeParser : Parser (Route -> a) a
 routeParser =
     let
+        --        Defaults should be the existing values
         valS maybeString =
             Maybe.withDefault "" maybeString
 
@@ -226,15 +227,17 @@ defaultQuery =
        }"""
 
 
+defaultSearchForm =
+    SearchForm "" "" "" "" "" "" False "" False 100
+
+
+defaultRawSearchForm =
+    RawSearchForm defaultQuery
+
+
 init : Int -> Url.Url -> Navigation.Key -> ( ModelWithKey, Cmd Msg )
 init width url key =
     let
-        defaultSearchForm =
-            SearchForm "" "" "" "" "" "" False "Date" False 100
-
-        defaultRawSearchForm =
-            RawSearchForm defaultQuery
-
         defaultModel =
             { url = url
             , gmailUrl = "https://mail.google.com/mail/"
@@ -311,6 +314,7 @@ type Msg
     | DoSearch
     | DoRawSearch
     | ToggleAdvancedSearch
+    | ClearResults
     | Resize Int Int
     | GotSearch (Result Http.Error ApiSearchResults)
     | Toggle String
@@ -347,13 +351,22 @@ updateWithKey msg modelWithKey =
 
                 cmd =
                     if model.url.path == "/search" then
-                        Navigation.pushUrl modelWithKey.key "/advanced-search"
+                        -- This won't work for first time you fill out form
+                        -- maybe keep track of what was used to generate the query?
+                        -- function to say what to do w/ tests. one place where http is sent
+                        -- as well as Urls pushed.
+                        -- if haveResults and form is the same
+                        -- need to be able to communicate whether url change should query or not. Maybe don't trigger on url change?
+                        --                                        if model.searchForm == form then
+                        --                                            ( { model | url = url }, Cmd.none )
+                        Navigation.pushUrl modelWithKey.key (rawSearchFormToUrl model.rawSearchForm)
 
                     else
-                        Navigation.pushUrl modelWithKey.key "/search"
+                        Navigation.pushUrl modelWithKey.key (searchFormToUrl model.searchForm)
             in
             ( { modelWithKey | model = { model | searchResults = emptySearchResults } }, cmd )
 
+        --            ( { modelWithKey | model = { model | searchResults = emptySearchResults } }, cmd )
         DoSearch ->
             ( { modelWithKey | model = { model | searchStatus = Loading } }, doSearch model.searchForm key )
 
@@ -459,6 +472,9 @@ update msg model =
 
         Resize x _ ->
             ( { model | windowWidth = x }, Cmd.none )
+
+        ClearResults ->
+            ( { model | searchResults = emptySearchResults, searchForm = defaultSearchForm, rawSearchForm = defaultRawSearchForm }, Cmd.none )
 
         GotSearch results ->
             case results of
@@ -756,6 +772,10 @@ viewSearchForm model =
                     { onPress = Just ToggleAdvancedSearch
                     , label = text "AdvancedSearch"
                     }
+                , Input.button defaultButtonAttrs
+                    { onPress = Just ClearResults
+                    , label = text "Reset"
+                    }
                 ]
     in
     row []
@@ -891,8 +911,8 @@ timeSeries data =
 -- HTTP
 
 
-doSearch : SearchForm -> Navigation.Key -> Cmd Msg
-doSearch searchForm key =
+searchFormToUrl : SearchForm -> String
+searchFormToUrl searchForm =
     let
         string =
             Url.Builder.string
@@ -909,22 +929,48 @@ doSearch searchForm key =
                     string name ""
 
         params =
-            [ string "participants" searchForm.participants
-            , string "bodyOrSubject" searchForm.bodyOrSubject
-            , string "startDate" searchForm.startDate
-            , string "endDate" searchForm.endDate
-            , string "timeZone" searchForm.timeZone
-            , string "label" searchForm.label
-            , bool "starredOnly" searchForm.starredOnly
-            , string "sortField" searchForm.sortField
-            , bool "ascending" searchForm.ascending
-            , int "size" searchForm.size
-            ]
+            if searchForm == defaultSearchForm then
+                []
 
+            else
+                [ string "participants" searchForm.participants
+                , string "bodyOrSubject" searchForm.bodyOrSubject
+                , string "startDate" searchForm.startDate
+                , string "endDate" searchForm.endDate
+                , string "timeZone" searchForm.timeZone
+                , string "label" searchForm.label
+                , bool "starredOnly" searchForm.starredOnly
+                , string "sortField" searchForm.sortField
+                , bool "ascending" searchForm.ascending
+                , int "size" searchForm.size
+                ]
+    in
+    Url.Builder.absolute [ "search" ] params
+
+
+doSearch : SearchForm -> Navigation.Key -> Cmd Msg
+doSearch searchForm key =
+    let
         url =
-            Url.Builder.absolute [ "search" ] params
+            searchFormToUrl searchForm
     in
     Navigation.pushUrl key url
+
+
+rawSearchFormToUrl : RawSearchForm -> String
+rawSearchFormToUrl rawSearchForm =
+    let
+        string =
+            Url.Builder.string
+
+        params =
+            if rawSearchForm == defaultRawSearchForm then
+                []
+
+            else
+                [ string "query" rawSearchForm.query ]
+    in
+    Url.Builder.absolute [ "advanced-search" ] params
 
 
 doRawSearch : RawSearchForm -> Navigation.Key -> Cmd Msg
