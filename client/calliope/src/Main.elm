@@ -80,7 +80,6 @@ type Route
 routeParser : Parser (Route -> a) a
 routeParser =
     let
-        --        Defaults should be the existing values
         valS maybeString =
             Maybe.withDefault "" maybeString
 
@@ -351,14 +350,6 @@ updateWithKey msg modelWithKey =
 
                 cmd =
                     if model.url.path == "/search" then
-                        -- This won't work for first time you fill out form
-                        -- maybe keep track of what was used to generate the query?
-                        -- function to say what to do w/ tests. one place where http is sent
-                        -- as well as Urls pushed.
-                        -- if haveResults and form is the same
-                        -- need to be able to communicate whether url change should query or not. Maybe don't trigger on url change?
-                        --                                        if model.searchForm == form then
-                        --                                            ( { model | url = url }, Cmd.none )
                         Navigation.pushUrl modelWithKey.key (rawSearchFormToUrl model.rawSearchForm)
 
                     else
@@ -368,6 +359,10 @@ updateWithKey msg modelWithKey =
 
         --            ( { modelWithKey | model = { model | searchResults = emptySearchResults } }, cmd )
         DoSearch ->
+            let
+                x =
+                    Debug.log "DoSearch"
+            in
             ( { modelWithKey | model = { model | searchStatus = Loading } }, doSearch model.searchForm key )
 
         DoRawSearch ->
@@ -401,15 +396,7 @@ update msg model =
             ( model, Cmd.none )
 
         UrlChanged url ->
-            case toRoute url of
-                Search form ->
-                    ( { model | searchForm = form, url = url }, cmdForUrl url )
-
-                AdvancedSearch form ->
-                    ( { model | rawSearchForm = form, url = url }, cmdForUrl url )
-
-                _ ->
-                    ( model, Cmd.none )
+            ( { model | url = url }, Cmd.none )
 
         UpdateGmailUrl gmailUrl ->
             ( { model | gmailUrl = gmailUrl }, Cmd.none )
@@ -570,7 +557,6 @@ subscriptions _ =
 
 
 
---    Sub.none
 -- VIEW
 
 
@@ -900,7 +886,7 @@ timeSeries data =
                 Ok d ->
                     ( d, toFloat t.messages )
 
-                -- need a better way of dealing with this
+                -- TODO: need a better way of dealing with this
                 Err _ ->
                     ( Time.millisToPosix 0, toFloat t.messages )
     in
@@ -951,10 +937,25 @@ searchFormToUrl searchForm =
 doSearch : SearchForm -> Navigation.Key -> Cmd Msg
 doSearch searchForm key =
     let
-        url =
+        urlString =
             searchFormToUrl searchForm
+
+        uu =
+            Url.fromString <| "http://localhost" ++ urlString
+
+        cmd =
+            let
+                x =
+                    Debug.log <| Debug.toString uu
+            in
+            case uu of
+                Nothing ->
+                    Cmd.none
+
+                Just url ->
+                    cmdForUrl url
     in
-    Navigation.pushUrl key url
+    Cmd.batch [ Navigation.pushUrl key urlString, cmd ]
 
 
 rawSearchFormToUrl : RawSearchForm -> String

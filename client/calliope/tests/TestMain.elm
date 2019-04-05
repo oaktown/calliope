@@ -76,6 +76,40 @@ searchResultsDecoderTest =
         ]
 
 
+routesTest : Test
+routesTest =
+    describe "routes"
+        [ describe "when starting with a valid search url"
+            [ describe "to /search"
+                [ todo "it populates the search form"
+                , todo "it runs a search"
+                ]
+            , describe "to /advanced-search"
+                [ todo "it populates the search form"
+                , todo "it runs a search"
+                ]
+            ]
+        , describe "toggling to /advanced-search from /search"
+            [ describe "without search results"
+                [ todo "show form with default query"
+                , todo "url should be /advanced-search no query"
+                , todo "search results should be unchanged"
+                ]
+            , describe "with search results run by basic search"
+                [ todo "show form with query field filled in with the last run query"
+                , todo "url should be /advanced-search?query=<query> where <query> is the last run query"
+                , todo "search results should be unchanged"
+                ]
+            ]
+        , describe "toggling to /search from /advanced-search"
+            [ describe "without search results" []
+            , describe "with search results from an advanced-search"
+                [ todo "we need to figure out whether something should happen – the search form won't match"
+                ]
+            ]
+        ]
+
+
 updateTest : Test
 updateTest =
     describe "update"
