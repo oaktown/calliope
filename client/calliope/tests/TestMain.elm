@@ -194,16 +194,24 @@ url =
     }
 
 
+fakeNav : Nav
+fakeNav =
+    { pushUrl = \str -> Cmd.none
+    , replaceUrl = \str -> Cmd.none
+    , back = \i -> Cmd.none
+    }
+
+
 defaultModel : Model
 defaultModel =
     { url = url
+    , nav = fakeNav
     , gmailUrl = "https://mail.google.com/mail/"
     , searchForm = SearchForm "" "" "" "" "" "" False "Date" False 100
     , rawSearchForm = RawSearchForm ""
     , searchResults = searchResults
     , expandedMessageId = ""
     , searchStatus = Empty
-    , showAdvancedSearch = False
     , windowWidth = 800
     }
 

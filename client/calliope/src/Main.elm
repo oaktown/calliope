@@ -1,4 +1,4 @@
-module Main exposing (ApiSearchResults, ChartDay, Message, MessageWrapper, Model, Msg(..), RawSearchForm, RawSearchFormMsg(..), SearchForm, SearchFormMsg(..), SearchResults, SearchStatus(..), appTitle, black, chartDayDecoder, defaultButtonAttrs, dimmedGray, doRawSearch, doSearch, graphHeight, graphWidth, gray, gutter, init, inputTextStyle, linkColor, main, messageDecoder, onOffSwitch, onUrlChange, onUrlRequest, reactor, searchResultsDecoder, space, subscriptions, timeSeries, update, updateRawSearchForm, updateSearchForm, view, viewRawSearchForm, viewSearchForm, viewSearchForms, viewSearchResults, viewTopbar, white)
+module Main exposing (ApiSearchResults, ChartDay, Message, MessageWrapper, Model, Msg(..), Nav, RawSearchForm, RawSearchFormMsg(..), SearchForm, SearchFormMsg(..), SearchResults, SearchStatus(..), appTitle, black, chartDayDecoder, defaultButtonAttrs, dimmedGray, doRawSearch, doSearch, graphHeight, graphWidth, gray, gutter, init, inputTextStyle, linkColor, main, messageDecoder, onOffSwitch, onUrlChange, onUrlRequest, reactor, searchResultsDecoder, space, subscriptions, timeSeries, update, updateRawSearchForm, updateSearchForm, view, viewRawSearchForm, viewSearchForm, viewSearchForms, viewSearchResults, viewTopbar, white)
 
 import BarGraph exposing (barGraph)
 import Browser exposing (Document, UrlRequest(..))
@@ -33,9 +33,9 @@ import Url.Parser.Query as Q
 main =
     Browser.application
         { init = init
-        , update = updateWithKey
+        , update = update
         , subscriptions = subscriptions
-        , view = viewWithKey
+        , view = view
         , onUrlRequest = onUrlRequest
         , onUrlChange = onUrlChange
         }
@@ -56,15 +56,15 @@ reactor =
         url =
             Url.Builder.absolute [] []
 
-        reactorInit : () -> Url.Url -> Navigation.Key -> ( ModelWithKey, Cmd Msg )
+        reactorInit : () -> Url.Url -> Navigation.Key -> ( Model, Cmd Msg )
         reactorInit _ =
             init 800
     in
     Browser.application
         { init = reactorInit
-        , update = updateWithKey
+        , update = update
         , subscriptions = subscriptions
-        , view = viewWithKey
+        , view = view
         , onUrlRequest = onUrlRequest
         , onUrlChange = onUrlChange
         }
@@ -141,14 +141,9 @@ type alias RawSearchForm =
     }
 
 
-type alias ModelWithKey =
-    { key : Navigation.Key
-    , model : Model
-    }
-
-
 type alias Model =
     { url : Url.Url
+    , nav : Nav
     , gmailUrl : String
     , searchForm : SearchForm
     , rawSearchForm : RawSearchForm
@@ -206,6 +201,21 @@ type alias SearchResults =
     }
 
 
+type alias Nav =
+    { pushUrl : String -> Cmd Msg
+    , replaceUrl : String -> Cmd Msg
+    , back : Int -> Cmd Msg
+    }
+
+
+wrappedNav : Navigation.Key -> Nav
+wrappedNav key =
+    { pushUrl = \str -> Navigation.pushUrl key str
+    , replaceUrl = \str -> Navigation.replaceUrl key str
+    , back = \i -> Navigation.back key i
+    }
+
+
 emptySearchResults =
     SearchResults "" [] []
 
@@ -234,11 +244,15 @@ defaultRawSearchForm =
     RawSearchForm defaultQuery
 
 
-init : Int -> Url.Url -> Navigation.Key -> ( ModelWithKey, Cmd Msg )
+init : Int -> Url.Url -> Navigation.Key -> ( Model, Cmd Msg )
 init width url key =
     let
+        nav =
+            wrappedNav key
+
         defaultModel =
             { url = url
+            , nav = nav
             , gmailUrl = "https://mail.google.com/mail/"
             , searchForm = defaultSearchForm
             , rawSearchForm = defaultRawSearchForm
@@ -262,11 +276,7 @@ init width url key =
                 OtherRoute ->
                     ( defaultModel, Cmd.none )
     in
-    ( { key = key
-      , model = model
-      }
-    , cmd
-    )
+    ( model, cmd )
 
 
 cmdForUrl : Url.Url -> Cmd Msg
@@ -321,25 +331,18 @@ type Msg
     | UrlChanged Url.Url
 
 
-updateWithKey : Msg -> ModelWithKey -> ( ModelWithKey, Cmd Msg )
-updateWithKey msg modelWithKey =
-    let
-        model =
-            modelWithKey.model
-
-        key =
-            modelWithKey.key
-    in
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
     case msg of
         UrlChangeRequested urlRequest ->
             case urlRequest of
                 Internal url ->
-                    ( modelWithKey
-                    , Navigation.pushUrl modelWithKey.key (Url.toString url)
+                    ( model
+                    , model.nav.pushUrl (Url.toString url)
                     )
 
                 External url ->
-                    ( modelWithKey
+                    ( model
                     , Navigation.load url
                     )
 
@@ -350,50 +353,22 @@ updateWithKey msg modelWithKey =
 
                 cmd =
                     if model.url.path == "/search" then
-                        Navigation.pushUrl modelWithKey.key (rawSearchFormToUrl model.rawSearchForm)
+                        model.nav.pushUrl (rawSearchFormToUrl model.rawSearchForm)
 
                     else
-                        Navigation.pushUrl modelWithKey.key (searchFormToUrl model.searchForm)
+                        model.nav.pushUrl (searchFormToUrl model.searchForm)
             in
-            ( { modelWithKey | model = { model | searchResults = emptySearchResults } }, cmd )
+            ( { model | searchResults = emptySearchResults }, cmd )
 
-        --            ( { modelWithKey | model = { model | searchResults = emptySearchResults } }, cmd )
         DoSearch ->
             let
                 x =
                     Debug.log "DoSearch"
             in
-            ( { modelWithKey | model = { model | searchStatus = Loading } }, doSearch model.searchForm key )
+            ( { model | searchStatus = Loading }, doSearch model.searchForm model.nav )
 
         DoRawSearch ->
-            ( { modelWithKey | model = { model | searchStatus = Loading } }, doRawSearch model.rawSearchForm key )
-
-        _ ->
-            let
-                ( newModel, newMsg ) =
-                    update msg modelWithKey.model
-            in
-            ( { modelWithKey | model = newModel }, newMsg )
-
-
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
-    case msg of
-        UrlChangeRequested _ ->
-            -- Should never happen
-            ( model, Cmd.none )
-
-        ToggleAdvancedSearch ->
-            -- Should never happen
-            ( model, Cmd.none )
-
-        DoSearch ->
-            -- Should never happen
-            ( model, Cmd.none )
-
-        DoRawSearch ->
-            -- Should never happen
-            ( model, Cmd.none )
+            ( { model | searchStatus = Loading }, doRawSearch model.rawSearchForm model.nav )
 
         UrlChanged url ->
             ( { model | url = url }, Cmd.none )
@@ -551,18 +526,13 @@ updateSearchForm msg model =
 -- SUBSCRIPTIONS
 
 
-subscriptions : ModelWithKey -> Sub Msg
+subscriptions : Model -> Sub Msg
 subscriptions _ =
     Browser.Events.onResize (\x y -> Resize x y)
 
 
 
 -- VIEW
-
-
-viewWithKey : ModelWithKey -> Document Msg
-viewWithKey modelWithKey =
-    view modelWithKey.model
 
 
 view : Model -> Document Msg
@@ -934,8 +904,8 @@ searchFormToUrl searchForm =
     Url.Builder.absolute [ "search" ] params
 
 
-doSearch : SearchForm -> Navigation.Key -> Cmd Msg
-doSearch searchForm key =
+doSearch : SearchForm -> Nav -> Cmd Msg
+doSearch searchForm nav =
     let
         urlString =
             searchFormToUrl searchForm
@@ -955,7 +925,7 @@ doSearch searchForm key =
                 Just url ->
                     cmdForUrl url
     in
-    Cmd.batch [ Navigation.pushUrl key urlString, cmd ]
+    Cmd.batch [ nav.pushUrl urlString, cmd ]
 
 
 rawSearchFormToUrl : RawSearchForm -> String
@@ -974,8 +944,8 @@ rawSearchFormToUrl rawSearchForm =
     Url.Builder.absolute [ "advanced-search" ] params
 
 
-doRawSearch : RawSearchForm -> Navigation.Key -> Cmd Msg
-doRawSearch rawSearchForm key =
+doRawSearch : RawSearchForm -> Nav -> Cmd Msg
+doRawSearch rawSearchForm nav =
     let
         string =
             Url.Builder.string
@@ -983,7 +953,7 @@ doRawSearch rawSearchForm key =
         url =
             Url.Builder.absolute [ "advanced-search" ] [ string "query" rawSearchForm.query ]
     in
-    Navigation.pushUrl key url
+    nav.pushUrl url
 
 
 
