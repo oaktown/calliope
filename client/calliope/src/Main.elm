@@ -1,8 +1,9 @@
-module Main exposing (ApiSearchResults, ChartDay, Message, MessageWrapper, Model, Msg(..), RawSearchForm, RawSearchFormMsg(..), SearchForm, SearchFormMsg(..), SearchResults, SearchStatus(..), appTitle, black, chartDayDecoder, defaultButtonAttrs, dimmedGray, doRawSearch, doSearch, graphHeight, graphWidth, gray, gutter, init, inputTextStyle, linkColor, main, messageDecoder, onOffSwitch, reactor, searchResultsDecoder, space, subscriptions, timeSeries, update, updateRawSearchForm, updateSearchForm, view, viewRawSearchForm, viewSearchForm, viewSearchForms, viewSearchResults, viewTopbar, white)
+module Main exposing (ApiSearchResults, ChartDay, Message, MessageWrapper, Model, Msg(..), Nav, RawSearchForm, RawSearchFormMsg(..), SearchForm, SearchFormMsg(..), SearchResults, SearchStatus(..), appTitle, black, chartDayDecoder, defaultButtonAttrs, dimmedGray, doRawSearch, doSearch, graphHeight, graphWidth, gray, gutter, init, inputTextStyle, linkColor, main, messageDecoder, onOffSwitch, onUrlChange, onUrlRequest, reactor, searchResultsDecoder, space, subscriptions, timeSeries, update, updateRawSearchForm, updateSearchForm, view, viewRawSearchForm, viewSearchForm, viewSearchForms, viewSearchResults, viewTopbar, white)
 
 import BarGraph exposing (barGraph)
-import Browser
+import Browser exposing (Document, UrlRequest(..))
 import Browser.Events
+import Browser.Navigation as Navigation
 import Debug
 import Element exposing (Element, alignTop, clip, column, el, fill, fillPortion, height, html, layout, link, none, padding, paddingXY, px, rgb255, rgba255, row, shrink, spacing, spacingXY, text, width)
 import Element.Background as Background
@@ -19,7 +20,10 @@ import Iso8601
 import Json.Decode as Decode exposing (Decoder, field, int, list, string)
 import Json.Decode.Pipeline exposing (required)
 import Time
+import Url exposing (Protocol(..))
 import Url.Builder
+import Url.Parser as Parser exposing ((</>), (<?>), Parser)
+import Url.Parser.Query as Q
 
 
 
@@ -27,26 +31,91 @@ import Url.Builder
 
 
 main =
-    Browser.element
+    Browser.application
         { init = init
         , update = update
         , subscriptions = subscriptions
         , view = view
+        , onUrlRequest = onUrlRequest
+        , onUrlChange = onUrlChange
         }
+
+
+onUrlRequest : UrlRequest -> Msg
+onUrlRequest request =
+    UrlChangeRequested request
+
+
+onUrlChange : Url.Url -> Msg
+onUrlChange url =
+    UrlChanged url
 
 
 reactor =
     let
-        reactorInit : () -> ( Model, Cmd Msg )
+        url =
+            Url.Builder.absolute [] []
+
+        reactorInit : () -> Url.Url -> Navigation.Key -> ( Model, Cmd Msg )
         reactorInit _ =
             init 800
     in
-    Browser.element
+    Browser.application
         { init = reactorInit
         , update = update
         , subscriptions = subscriptions
         , view = view
+        , onUrlRequest = onUrlRequest
+        , onUrlChange = onUrlChange
         }
+
+
+type Route
+    = Home
+    | Search SearchForm
+    | AdvancedSearch RawSearchForm
+    | OtherRoute
+
+
+routeParser : Parser (Route -> a) a
+routeParser =
+    let
+        valS maybeString =
+            Maybe.withDefault "" maybeString
+
+        valI maybeInt =
+            Maybe.withDefault 100 maybeInt
+
+        valB maybeString =
+            Maybe.withDefault "false" maybeString == "true"
+
+        oneOf =
+            Parser.oneOf
+
+        map =
+            Parser.map
+
+        s =
+            Parser.s
+
+        toSearchRoute : Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe Int -> Route
+        toSearchRoute participants bodyOrSubject startDate endDate timeZone label_ starredOnly sortField ascending size_ =
+            Search <| SearchForm (valS participants) (valS bodyOrSubject) (valS startDate) (valS endDate) (valS timeZone) (valS label_) (valB starredOnly) (valS sortField) (valB ascending) (valI size_)
+
+        toAdvancedSearchRoute : Maybe String -> Route
+        toAdvancedSearchRoute query =
+            AdvancedSearch <| RawSearchForm (Maybe.withDefault defaultQuery query)
+    in
+    oneOf
+        [ map toSearchRoute (s "search" <?> Q.string "participants" <?> Q.string "bodyOrSubject" <?> Q.string "startDate" <?> Q.string "endDate" <?> Q.string "timeZone" <?> Q.string "label" <?> Q.string "starredOnly" <?> Q.string "sortField" <?> Q.string "ascending" <?> Q.int "size")
+        , map toAdvancedSearchRoute (s "advanced-search" <?> Q.string "query")
+        , map Home Parser.top
+        ]
+
+
+toRoute : Url.Url -> Route
+toRoute url =
+    Maybe.withDefault OtherRoute (Parser.parse routeParser url)
 
 
 
@@ -73,13 +142,14 @@ type alias RawSearchForm =
 
 
 type alias Model =
-    { gmailUrl : String
+    { url : Url.Url
+    , nav : Nav
+    , gmailUrl : String
     , searchForm : SearchForm
     , rawSearchForm : RawSearchForm
     , searchResults : SearchResults
     , expandedMessageId : String
     , searchStatus : SearchStatus
-    , showAdvancedSearch : Bool
     , windowWidth : Int
     }
 
@@ -131,41 +201,98 @@ type alias SearchResults =
     }
 
 
-init : Int -> ( Model, Cmd Msg )
-init flags =
-    let
-        defaultSearchForm =
-            SearchForm "" "" "" "" "" "" False "Date" False 100
-
-        defaultRawSearchForm =
-            RawSearchForm """{
-  "query": {
-    "match_all": {}
-  },
-  "size": 100,
-  "sort": [
-    {
-      "Date": {
-        "order": "desc"
-      }
+type alias Nav =
+    { pushUrl : String -> Cmd Msg
+    , replaceUrl : String -> Cmd Msg
+    , back : Int -> Cmd Msg
     }
-  ]
-}"""
 
-        emptySearchResults =
-            SearchResults "" [] []
+
+wrappedNav : Navigation.Key -> Nav
+wrappedNav key =
+    { pushUrl = \str -> Navigation.pushUrl key str
+    , replaceUrl = \str -> Navigation.replaceUrl key str
+    , back = \i -> Navigation.back key i
+    }
+
+
+emptySearchResults =
+    SearchResults "" [] []
+
+
+defaultQuery =
+    """{
+         "query": {
+           "match_all": {}
+         },
+         "size": 100,
+         "sort": [
+           {
+             "Date": {
+               "order": "desc"
+             }
+           }
+         ]
+       }"""
+
+
+defaultSearchForm =
+    SearchForm "" "" "" "" "" "" False "" False 100
+
+
+defaultRawSearchForm =
+    RawSearchForm defaultQuery
+
+
+init : Int -> Url.Url -> Navigation.Key -> ( Model, Cmd Msg )
+init width url key =
+    let
+        nav =
+            wrappedNav key
+
+        defaultModel =
+            { url = url
+            , nav = nav
+            , gmailUrl = "https://mail.google.com/mail/"
+            , searchForm = defaultSearchForm
+            , rawSearchForm = defaultRawSearchForm
+            , searchResults = emptySearchResults
+            , expandedMessageId = ""
+            , searchStatus = Empty
+            , windowWidth = width
+            }
+
+        ( model, cmd ) =
+            case toRoute url of
+                Home ->
+                    ( defaultModel, Navigation.pushUrl key "/search" )
+
+                Search form ->
+                    ( { defaultModel | searchForm = form }, cmdForUrl url )
+
+                AdvancedSearch form ->
+                    ( { defaultModel | rawSearchForm = form }, cmdForUrl url )
+
+                OtherRoute ->
+                    ( defaultModel, Cmd.none )
     in
-    ( { gmailUrl = "https://mail.google.com/mail/"
-      , searchForm = defaultSearchForm
-      , rawSearchForm = defaultRawSearchForm
-      , searchResults = emptySearchResults
-      , expandedMessageId = ""
-      , searchStatus = Empty
-      , showAdvancedSearch = False
-      , windowWidth = flags
-      }
-    , Cmd.none
-    )
+    ( model, cmd )
+
+
+cmdForUrl : Url.Url -> Cmd Msg
+cmdForUrl url =
+    let
+        query =
+            Maybe.withDefault "" url.query
+    in
+    if (url.path == "/search" || url.path == "/advanced-search") && not (String.isEmpty query) then
+        Http.get
+            { url = "/api/search?" ++ query
+            , expect = Http.expectJson GotSearch searchResultsDecoder
+            }
+
+    else
+        Cmd.none
 
 
 
@@ -196,14 +323,56 @@ type Msg
     | DoSearch
     | DoRawSearch
     | ToggleAdvancedSearch
+    | ClearResults
     | Resize Int Int
     | GotSearch (Result Http.Error ApiSearchResults)
     | Toggle String
+    | UrlChangeRequested UrlRequest
+    | UrlChanged Url.Url
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        UrlChangeRequested urlRequest ->
+            case urlRequest of
+                Internal url ->
+                    ( model
+                    , model.nav.pushUrl (Url.toString url)
+                    )
+
+                External url ->
+                    ( model
+                    , Navigation.load url
+                    )
+
+        ToggleAdvancedSearch ->
+            let
+                d =
+                    Debug.log "path" model.url.path
+
+                cmd =
+                    if model.url.path == "/search" then
+                        model.nav.pushUrl (rawSearchFormToUrl model.rawSearchForm)
+
+                    else
+                        model.nav.pushUrl (searchFormToUrl model.searchForm)
+            in
+            ( { model | searchResults = emptySearchResults }, cmd )
+
+        DoSearch ->
+            let
+                x =
+                    Debug.log "DoSearch"
+            in
+            ( { model | searchStatus = Loading }, doSearch model.searchForm model.nav )
+
+        DoRawSearch ->
+            ( { model | searchStatus = Loading }, doRawSearch model.rawSearchForm model.nav )
+
+        UrlChanged url ->
+            ( { model | url = url }, Cmd.none )
+
         UpdateGmailUrl gmailUrl ->
             ( { model | gmailUrl = gmailUrl }, Cmd.none )
 
@@ -220,9 +389,6 @@ update msg model =
               }
             , Cmd.none
             )
-
-        ToggleAdvancedSearch ->
-            ( { model | showAdvancedSearch = not model.showAdvancedSearch }, Cmd.none )
 
         Toggle id ->
             if id == model.expandedMessageId then
@@ -254,32 +420,23 @@ update msg model =
 
                                 Nothing ->
                                     let
-                                        maybeHtml =
+                                        messageBody =
                                             Html.Parser.run message.bodyHtml
-
-                                        style =
-                                            Attributes.style
-
-                                        scrollAttrs =
-                                            [ clip, Element.scrollbars, Element.height <| px graphHeight ]
+                                                |> Result.toMaybe
+                                                |> Maybe.andThen (\parsed -> Just (Html.div [] (Html.Parser.Util.toVirtualDom parsed)))
+                                                |> Maybe.withDefault (Html.text "Error parsing html")
+                                                |> html
+                                                |> el [ clip, Element.scrollbars, Element.height <| px graphHeight ]
                                     in
-                                    case maybeHtml of
-                                        Ok parsed ->
-                                            ( message, Just <| el scrollAttrs (html <| Html.div [] (Html.Parser.Util.toVirtualDom parsed)) )
-
-                                        Err _ ->
-                                            ( message, Just <| el [] (text "Error parsing html") )
+                                    ( message, Just messageBody )
                 in
                 ( { model | searchResults = searchResults, expandedMessageId = id }, Cmd.none )
 
         Resize x _ ->
             ( { model | windowWidth = x }, Cmd.none )
 
-        DoSearch ->
-            ( { model | searchStatus = Loading }, doSearch model.searchForm )
-
-        DoRawSearch ->
-            ( { model | searchStatus = Loading }, doRawSearch model.rawSearchForm )
+        ClearResults ->
+            ( { model | searchResults = emptySearchResults, searchForm = defaultSearchForm, rawSearchForm = defaultRawSearchForm }, Cmd.none )
 
         GotSearch results ->
             case results of
@@ -370,23 +527,26 @@ updateSearchForm msg model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions _ =
     Browser.Events.onResize (\x y -> Resize x y)
 
 
 
---    Sub.none
 -- VIEW
 
 
-view : Model -> Html Msg
+view : Model -> Document Msg
 view model =
-    layout [ Font.size 12 ] <|
-        column [ width fill ]
-            [ viewTopbar
-            , viewSearchForms model
-            , viewSearchResults model
-            ]
+    { title = "Calliope – therapy for email monsters"
+    , body =
+        [ layout [ Font.size 12 ] <|
+            column [ width fill ]
+                [ viewTopbar
+                , viewSearchForms model
+                , viewSearchResults model
+                ]
+        ]
+    }
 
 
 appTitle : Element msg
@@ -465,7 +625,7 @@ viewSearchForms : Model -> Element Msg
 viewSearchForms model =
     let
         searchForm =
-            if model.showAdvancedSearch then
+            if model.url.path == "/advanced-search" then
                 viewRawSearchForm model.rawSearchForm
 
             else
@@ -477,7 +637,7 @@ viewSearchForms model =
         ]
         [ el [ width fill ] <|
             Input.text inputTextStyle
-                { onChange = \str -> UpdateGmailUrl str
+                { onChange = UpdateGmailUrl
                 , text = model.gmailUrl
                 , placeholder = Nothing
                 , label = Input.labelAbove [] (text "Gmail url (useful if you are signed in to multiple Gmail accounts simultaneously)")
@@ -504,7 +664,7 @@ viewSearchForm model =
         searchField : (String -> SearchFormMsg) -> String -> String -> Element Msg
         searchField msg val label =
             Input.text inputTextStyle
-                { onChange = \str -> UpdateSearch (msg str)
+                { onChange = UpdateSearch << msg
                 , text = val
                 , placeholder = Nothing
                 , label = Input.labelAbove [] (text label)
@@ -526,13 +686,13 @@ viewSearchForm model =
                 [ searchField BodyOrSubject model.bodyOrSubject "Body or subject"
                 , row [ width fill ]
                     [ Input.text (width (fillPortion 4) :: inputTextStyle)
-                        { onChange = \str -> UpdateSearch (Label str)
+                        { onChange = UpdateSearch << Label
                         , text = model.label
                         , placeholder = Nothing
                         , label = Input.labelAbove [] (text "Label")
                         }
                     , Input.checkbox [ width (fillPortion 1), gutter ]
-                        { onChange = \b -> UpdateSearch StarredOnly
+                        { onChange = \_ -> UpdateSearch StarredOnly
                         , icon = onOffSwitch
                         , checked = model.starredOnly
                         , label = Input.labelLeft [] (text "Starred only")
@@ -540,13 +700,13 @@ viewSearchForm model =
                     ]
                 , row [ width fill ]
                     [ Input.text (width (fillPortion 4) :: inputTextStyle)
-                        { onChange = \str -> UpdateSearch (SortField str)
+                        { onChange = UpdateSearch << SortField
                         , text = model.sortField
                         , placeholder = Nothing
                         , label = Input.labelAbove [] (text "Sort field")
                         }
                     , Input.checkbox [ width (fillPortion 1), gutter ]
-                        { onChange = \b -> UpdateSearch Ascending
+                        { onChange = \_ -> UpdateSearch Ascending
                         , icon = onOffSwitch
                         , checked = model.ascending
                         , label = Input.labelLeft [] (text "Ascending")
@@ -567,6 +727,10 @@ viewSearchForm model =
                 , Input.button defaultButtonAttrs
                     { onPress = Just ToggleAdvancedSearch
                     , label = text "AdvancedSearch"
+                    }
+                , Input.button defaultButtonAttrs
+                    { onPress = Just ClearResults
+                    , label = text "Reset"
                     }
                 ]
     in
@@ -603,9 +767,6 @@ viewRawSearchForm model =
 viewSearchResults : Model -> Element Msg
 viewSearchResults model =
     let
-        windowWidth =
-            model.windowWidth
-
         status =
             model.searchStatus
 
@@ -695,7 +856,7 @@ timeSeries data =
                 Ok d ->
                     ( d, toFloat t.messages )
 
-                -- need a better way of dealing with this
+                -- TODO: need a better way of dealing with this
                 Err _ ->
                     ( Time.millisToPosix 0, toFloat t.messages )
     in
@@ -706,8 +867,8 @@ timeSeries data =
 -- HTTP
 
 
-doSearch : SearchForm -> Cmd Msg
-doSearch searchForm =
+searchFormToUrl : SearchForm -> String
+searchFormToUrl searchForm =
     let
         string =
             Url.Builder.string
@@ -724,40 +885,75 @@ doSearch searchForm =
                     string name ""
 
         params =
-            [ string "participants" searchForm.participants
-            , string "bodyOrSubject" searchForm.bodyOrSubject
-            , string "startDate" searchForm.startDate
-            , string "endDate" searchForm.endDate
-            , string "timeZone" searchForm.timeZone
-            , string "label" searchForm.label
-            , bool "starredOnly" searchForm.starredOnly
-            , string "sortField" searchForm.sortField
-            , bool "ascending" searchForm.ascending
-            , int "size" searchForm.size
-            ]
+            if searchForm == defaultSearchForm then
+                []
 
-        url =
-            Url.Builder.absolute [ "api", "search" ] params
+            else
+                [ string "participants" searchForm.participants
+                , string "bodyOrSubject" searchForm.bodyOrSubject
+                , string "startDate" searchForm.startDate
+                , string "endDate" searchForm.endDate
+                , string "timeZone" searchForm.timeZone
+                , string "label" searchForm.label
+                , bool "starredOnly" searchForm.starredOnly
+                , string "sortField" searchForm.sortField
+                , bool "ascending" searchForm.ascending
+                , int "size" searchForm.size
+                ]
     in
-    Http.get
-        { url = url
-        , expect = Http.expectJson GotSearch searchResultsDecoder
-        }
+    Url.Builder.absolute [ "search" ] params
 
 
-doRawSearch : RawSearchForm -> Cmd Msg
-doRawSearch rawSearchForm =
+doSearch : SearchForm -> Nav -> Cmd Msg
+doSearch searchForm nav =
+    let
+        urlString =
+            searchFormToUrl searchForm
+
+        uu =
+            Url.fromString <| "http://localhost" ++ urlString
+
+        cmd =
+            let
+                x =
+                    Debug.log <| Debug.toString uu
+            in
+            case uu of
+                Nothing ->
+                    Cmd.none
+
+                Just url ->
+                    cmdForUrl url
+    in
+    Cmd.batch [ nav.pushUrl urlString, cmd ]
+
+
+rawSearchFormToUrl : RawSearchForm -> String
+rawSearchFormToUrl rawSearchForm =
+    let
+        string =
+            Url.Builder.string
+
+        params =
+            if rawSearchForm == defaultRawSearchForm then
+                []
+
+            else
+                [ string "query" rawSearchForm.query ]
+    in
+    Url.Builder.absolute [ "advanced-search" ] params
+
+
+doRawSearch : RawSearchForm -> Nav -> Cmd Msg
+doRawSearch rawSearchForm nav =
     let
         string =
             Url.Builder.string
 
         url =
-            Url.Builder.absolute [ "api", "search" ] [ string "query" rawSearchForm.query ]
+            Url.Builder.absolute [ "advanced-search" ] [ string "query" rawSearchForm.query ]
     in
-    Http.get
-        { url = url
-        , expect = Http.expectJson GotSearch searchResultsDecoder
-        }
+    nav.pushUrl url
 
 
 

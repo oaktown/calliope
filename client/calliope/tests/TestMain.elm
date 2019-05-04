@@ -76,6 +76,40 @@ searchResultsDecoderTest =
         ]
 
 
+routesTest : Test
+routesTest =
+    describe "routes"
+        [ describe "when starting with a valid search url"
+            [ describe "to /search"
+                [ todo "it populates the search form"
+                , todo "it runs a search"
+                ]
+            , describe "to /advanced-search"
+                [ todo "it populates the search form"
+                , todo "it runs a search"
+                ]
+            ]
+        , describe "toggling to /advanced-search from /search"
+            [ describe "without search results"
+                [ todo "show form with default query"
+                , todo "url should be /advanced-search no query"
+                , todo "search results should be unchanged"
+                ]
+            , describe "with search results run by basic search"
+                [ todo "show form with query field filled in with the last run query"
+                , todo "url should be /advanced-search?query=<query> where <query> is the last run query"
+                , todo "search results should be unchanged"
+                ]
+            ]
+        , describe "toggling to /search from /advanced-search"
+            [ describe "without search results" []
+            , describe "with search results from an advanced-search"
+                [ todo "we need to figure out whether something should happen – the search form won't match"
+                ]
+            ]
+        ]
+
+
 updateTest : Test
 updateTest =
     describe "update"
@@ -92,22 +126,22 @@ toggleIdTests =
             [ test "the target should be listed as expanded" <|
                 \_ ->
                     Expect.equal "2" updated.expandedMessageId
-            , test "the target should have parsed html" <|
+            , test "the target should have a message body" <|
                 \_ ->
                     let
-                        expanded =
+                        idsWithMessageBodies =
                             let
                                 appendIfParsed : MessageWrapper -> List String -> List String
-                                appendIfParsed ( message, parsed ) parsedList =
-                                    if parsed /= Nothing then
-                                        message.id :: parsedList
+                                appendIfParsed ( message, parsedHtml ) ids =
+                                    if parsedHtml /= Nothing then
+                                        message.id :: ids
 
                                     else
-                                        parsedList
+                                        ids
                             in
                             List.foldl appendIfParsed [] updated.searchResults.messagesWithHtml
                     in
-                    Expect.equalLists [ "2" ] expanded
+                    Expect.equalLists [ "2" ] idsWithMessageBodies
             ]
         , describe "when target is already expanded" <|
             let
@@ -150,15 +184,34 @@ searchResults =
     { emptySearchResults | messagesWithHtml = threeWrappedMessages }
 
 
+url =
+    { protocol = Http
+    , host = "localhost"
+    , port_ = Just 3000
+    , path = "/"
+    , query = Nothing
+    , fragment = Nothing
+    }
+
+
+fakeNav : Nav
+fakeNav =
+    { pushUrl = \str -> Cmd.none
+    , replaceUrl = \str -> Cmd.none
+    , back = \i -> Cmd.none
+    }
+
+
 defaultModel : Model
 defaultModel =
-    { gmailUrl = "https://mail.google.com/mail/"
+    { url = url
+    , nav = fakeNav
+    , gmailUrl = "https://mail.google.com/mail/"
     , searchForm = SearchForm "" "" "" "" "" "" False "Date" False 100
     , rawSearchForm = RawSearchForm ""
     , searchResults = searchResults
     , expandedMessageId = ""
     , searchStatus = Empty
-    , showAdvancedSearch = False
     , windowWidth = 800
     }
 
