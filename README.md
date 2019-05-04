@@ -3,6 +3,18 @@ Email query and visualization for observation and study of wild email monsters
 
 ![angry faced envelope with arms waving](images/email_monster.png)
 
+## Running the app
+
+Running these commands in three separate terminal tabs will provide visibility
+into the logs with easy stop/start during development:
+
+```
+docker-compose up   # Elastic Search
+go run main.go web  # API server: http://localhost:8080
+elm-app start   # web front end: http://localhost:3000/
+```
+
+
 ## Setting up Development Environment
 
 Calliope's backend is written in Go. This includes the CLI and an API server. The front-end is written in Elm. The following instructions are for developing with Macs.
