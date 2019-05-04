@@ -453,7 +453,22 @@ update msg model =
                             let
                                 wrapMessage : Message -> MessageWrapper
                                 wrapMessage message =
-                                    ( message, Nothing )
+                                    let
+                                        parsed =
+                                            Html.Parser.run message.bodyHtml
+
+                                        h =
+                                            case parsed of
+                                                Ok p ->
+                                                    Html.Parser.Util.toVirtualDom p
+                                                        |> Html.div []
+                                                        |> html
+                                                        |> Just
+
+                                                Err e ->
+                                                    Nothing
+                                    in
+                                    ( message, h )
                             in
                             List.map wrapMessage messages
 
